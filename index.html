@@ -169,6 +169,7 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .hint b{display:block;color:var(--teal);font-size:14px}
 .hint span{color:var(--text)}
 .hint .sm{flex:0 0 auto}
+.brow .bn .tag{font:500 11px var(--mono);font-style:normal;color:var(--muted)}
 
 /* ================= 电脑版专属样式：宽屏大厅布局、鼠标准星 ================= */
 .desktop .grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
@@ -246,7 +247,7 @@ html.touch .sm{padding:8px 12px;font-size:13px}
   <section class="status" aria-label="我的代号与行动次数">
    <div class="who"><span class="lbl">代号</span><b id="myName">未设置</b><button class="linkbtn" id="renameBtn">改名</button></div>
    <div class="plays" id="playsInfo"></div>
-   <div class="tools"><button class="btn" id="inviteBtn">邀请好友</button><button class="btn" id="pasteBtn">输入口令 / 链接</button></div>
+   <div class="tools"><button class="btn" id="inviteBtn">邀请好友</button><button class="btn" id="pasteBtn">输入口令 / 链接</button><button class="btn" id="didBtn">设备码</button></div>
   </section>
   <nav class="tabs" aria-label="大厅分页"><button data-tab="gear" class="on">配装</button><button data-tab="stash">仓库</button><button data-tab="rank">排行</button><button data-tab="help">玩法</button></nav>
   <section class="deploy">
@@ -1627,13 +1628,14 @@ function endRaid(ok,info){
 }
 
 /* ---- src/core/meta.js ---- */
-/* ================= 第一期：代号 · 行动次数 · 无限次口令 · 邀请回执 · 积分与好友榜 =================
-   零后端：所有数据只存在本机（localStorage）。口令是管理员用 Ed25519 私钥对代号的签名，
-   页面里只有公钥，只能核对、算不出口令。 */
+/* ================= 第一期：设备码 · 代号 · 行动次数 · 无限次口令 · 邀请回执 · 积分与好友榜 =================
+   零后端：所有数据只存在本机（localStorage）。
+   身份 = 设备码：首次打开时随机生成的 80 位编号（不采集任何设备信息），代号只是显示名，可以重名。
+   口令 = 管理员用 Ed25519 私钥对「设备码」的签名；页面里只有公钥，只能核对、算不出口令，也只在那台设备上有效。 */
 const META_KEY='reef-ops-meta-v1';
 const RULES={freePerDay:3,inviteeBonus:3,inviterBonus:5,bonusCap:99,receiptPerDay:4,
  modeMul:{n:1,x:1.5},killPts:{scav:5,merc:15,guard:20,boss:150},extractBonus:20,deathFactor:.5,weekTop:5};
-let M=null,PASS_OK=false,pendingInvite='',pendingPass=null;
+let M=null,PASS_OK=false,pendingInvite=null;
 
 /* ---- helpers ---- */
 const pad2=n=>String(n).padStart(2,'0');
@@ -1641,6 +1643,13 @@ const fmtDate=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const dayKey=t=>fmtDate(new Date((t||Date.now())-4*3600e3));           // 每天 04:00 换日
 function weekKey(t){const d=new Date((t||Date.now())-4*3600e3);d.setDate(d.getDate()-((d.getDay()+6)%7));return fmtDate(d);} // 本周一
 const normName=s=>String(s||'').normalize('NFKC').trim().toLowerCase();
+const B32='0123456789ABCDEFGHJKMNPQRSTVWXYZ';             // Crockford Base32，不含 I L O U
+function newDeviceId(){const b=crypto.getRandomValues(new Uint8Array(10));let bits=0,val=0,out='';
+ for(const x of b){val=(val<<8)|x;bits+=8;while(bits>=5){out+=B32[(val>>(bits-5))&31];bits-=5;}}return out;}   // 80 bit → 16 位
+const normDid=s=>String(s||'').toUpperCase().replace(/[\s-]/g,'').replace(/O/g,'0').replace(/[IL]/g,'1');
+const didOK=s=>/^[0-9A-HJKMNP-TV-Z]{16}$/.test(s);
+const fmtDid=d=>String(d).replace(/(.{4})(?=.)/g,'$1-');       // K7Q2-M9XW-4DPN-AC8Z
+const didTag=d=>'#'+String(d||'').slice(0,4);
 const nameOK=s=>/^[\p{L}\p{N}_\-·]{2,12}$/u.test(String(s||'').trim());
 const utf8=s=>new TextEncoder().encode(s),unutf8=b=>new TextDecoder().decode(b);
 function b64uEnc(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
@@ -1651,9 +1660,15 @@ const siteURL=()=>location.origin+location.pathname;
 const rnd36=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),b=>(b%36).toString(36)).join('');
 
 /* ---- storage ---- */
-function newMeta(){return{name:'',created:0,day:'',freeUsed:0,bonus:0,pass:'',invitedBy:'',firstOk:false,receiptKey:'',
+function newMeta(){return{did:'',name:'',created:0,day:'',freeUsed:0,bonus:0,pass:'',invitedBy:'',firstOk:false,receiptKey:'',
  receiptsUsed:[],receiptDay:'',receiptToday:0,invitesOk:0,raids:[],friends:{}};}
-function loadMeta(){try{const r=localStorage.getItem(META_KEY);if(r){const o=JSON.parse(r);if(o&&typeof o==='object'){M=Object.assign(newMeta(),o);return;}}}catch(_){}M=newMeta();}
+function loadMeta(){
+ try{const r=localStorage.getItem(META_KEY);if(r){const o=JSON.parse(r);if(o&&typeof o==='object')M=Object.assign(newMeta(),o);}}catch(_){}
+ if(!M)M=newMeta();
+ if(!didOK(M.did)){M.did=newDeviceId();saveMeta();}
+ for(const k in M.friends)if(!didOK(k))delete M.friends[k];            // 旧版按代号存的好友记录作废
+ if(M.invitedBy&&typeof M.invitedBy!=='object')M.invitedBy='';
+}
 function saveMeta(){try{localStorage.setItem(META_KEY,JSON.stringify(M));}catch(_){}}
 
 /* ---- plays ---- */
@@ -1664,20 +1679,22 @@ function consumePlay(){rollDay();if(PASS_OK)return true;if(M.freeUsed<RULES.free
 const addBonus=n=>{M.bonus=Math.min(RULES.bonusCap,M.bonus+n);};
 
 /* ---- 无限次口令 ---- */
+// 口令文本：RF2.<设备码>.<到期日或->.<备注(base64url)或->.<签名>；签名内容：reef-pass|v2|设备码|到期日|备注
 function parsePass(text){
- const m=/RF1\.([A-Za-z0-9_-]+)\.(\d{4}-\d{2}-\d{2}|-)\.([A-Za-z0-9_-]{80,90})/.exec(String(text||''));if(!m)return null;
- try{return{name:unutf8(b64uDec(m[1])),until:m[2]==='-'?null:m[2],sig:m[3],text:m[0]};}catch(_){return null;}
+ const m=/RF2\.([0-9A-HJKMNP-TV-Z]{16})\.(\d{4}-\d{2}-\d{2}|-)\.([A-Za-z0-9_-]+|-)\.([A-Za-z0-9_-]{80,90})/.exec(String(text||''));if(!m)return null;
+ let label='';try{label=m[3]==='-'?'':unutf8(b64uDec(m[3]));}catch(_){return null;}
+ return{did:m[1],until:m[2]==='-'?null:m[2],label,sig:m[4],text:m[0]};
 }
-async function verifyPass(p,name){
- if(!p)return{ok:false,why:'没认出口令'};
+async function verifyPass(p){
+ if(!p)return{ok:false,why:'没认出口令，请完整复制'};
  if(typeof PASS_PUBKEY==='undefined'||!PASS_PUBKEY)return{ok:false,why:'本站还没配置口令公钥'};
- if(normName(p.name)!==normName(name))return{ok:false,why:`这个口令属于「${p.name}」，只能用于这个代号`};
+ if(p.did!==M.did)return{ok:false,why:`这个口令是发给设备 ${fmtDid(p.did)} 的，本机设备码是 ${fmtDid(M.did)}`};
  if(p.until&&dayKey()>p.until)return{ok:false,why:`口令已在 ${p.until} 到期`};
  if(typeof PASS_REVOKED!=='undefined'&&PASS_REVOKED.includes(p.sig.slice(0,16)))return{ok:false,why:'这个口令已被作废'};
- try{const ok=await NobleEd25519.verifyAsync(b64uDec(p.sig),utf8(`reef-pass|v1|${normName(p.name)}|${p.until||'-'}`),b64uDec(PASS_PUBKEY));
+ try{const ok=await NobleEd25519.verifyAsync(b64uDec(p.sig),utf8(`reef-pass|v2|${p.did}|${p.until||'-'}|${p.label||'-'}`),b64uDec(PASS_PUBKEY));
   return ok?{ok:true}:{ok:false,why:'口令不正确'};}catch(_){return{ok:false,why:'口令不正确'};}
 }
-async function refreshPass(){PASS_OK=false;if(M.pass&&M.name){PASS_OK=(await verifyPass(parsePass(M.pass),M.name)).ok;}}
+async function refreshPass(){PASS_OK=false;if(M.pass){PASS_OK=(await verifyPass(parsePass(M.pass))).ok;}}
 
 /* ---- 积分 ---- */
 function raidScore(r){
@@ -1696,38 +1713,36 @@ function weekStats(){
 }
 
 /* ---- 链接：邀请 #i= · 回执 #r= · 战绩 #s= · 口令 #p= ---- */
-const inviteLink=()=>`${siteURL()}#i=${b64uEnc(utf8(M.name))}`;
-const receiptLink=()=>`${siteURL()}#r=${packJSON({to:M.invitedBy,from:M.name,k:M.receiptKey})}`;
-function scoreLink(){const w=weekStats();return`${siteURL()}#s=${packJSON({n:M.name,w:w.wk,ws:w.total,b:w.best,c:w.count,t:Date.now()})}`;}
+const inviteLink=()=>`${siteURL()}#i=${packJSON({n:M.name,d:M.did})}`;
+const receiptLink=()=>`${siteURL()}#r=${packJSON({to:M.invitedBy.d,tn:M.invitedBy.n,from:M.name,fd:M.did,k:M.receiptKey})}`;
+function scoreLink(){const w=weekStats();return`${siteURL()}#s=${packJSON({n:M.name,d:M.did,w:w.wk,ws:w.total,b:w.best,c:w.count,t:Date.now()})}`;}
 async function handleIncoming(text){
  text=String(text||'').trim();if(!text)return;
  let m;
- if((m=/#p=([^\s&]+)/.exec(text))||/RF1\./.test(text)){
-  const p=parsePass(m?decodeURIComponent(m[1]):text);if(!p){toast('没认出口令，请完整复制');return;}
-  if(!M.name){pendingPass=p;openNameModal(p.name);return;}
-  const r=await verifyPass(p,M.name);
+ if((m=/#p=([^\s&]+)/.exec(text))||/RF2\./.test(text)){
+  const p=parsePass(m?decodeURIComponent(m[1]):text);
+  const r=await verifyPass(p);
   if(r.ok){M.pass=p.text;saveMeta();PASS_OK=true;toast(p.until?`口令生效：${p.until} 前无限次行动`:'口令生效：无限次行动','ok');}
   else toast(r.why,'bad');
  }else if((m=/#i=([A-Za-z0-9_-]+)/.exec(text))){
-  let from='';try{from=unutf8(b64uDec(m[1]));}catch(_){}
-  if(!nameOK(from)){toast('邀请链接不完整','bad');return;}
-  if(M.name){toast(normName(from)===normName(M.name)?'这是你自己的邀请链接，发给朋友吧':'你已经有代号了，邀请礼包只给新玩家');return;}
-  pendingInvite=from;openNameModal();
+  const o=unpackJSON(m[1]);if(!o||!nameOK(o.n)||!didOK(o.d)){toast('邀请链接不完整','bad');return;}
+  if(o.d===M.did){toast('这是你自己的邀请链接，发给朋友吧');return;}
+  if(M.name){toast('你已经有代号了，邀请礼包只给新玩家');return;}
+  pendingInvite={n:o.n,d:o.d};openNameModal();
  }else if((m=/#r=([A-Za-z0-9_-]+)/.exec(text))){
-  const o=unpackJSON(m[1]);if(!o||!o.to||!o.k){toast('回执链接不完整','bad');return;}
-  if(!M.name){toast('先设置代号，再打开回执','bad');return;}
-  if(normName(o.to)!==normName(M.name)){toast(`这张回执是给「${o.to}」的`,'bad');return;}
-  if(M.receiptsUsed.includes(o.k)){toast('这张回执已经领过了');return;}
+  const o=unpackJSON(m[1]);if(!o||!didOK(o.to)||!didOK(o.fd)||!o.k){toast('回执链接不完整','bad');return;}
+  if(o.to!==M.did){toast(`这张回执是给「${o.tn}」${didTag(o.to)} 的，不是这台设备`,'bad');return;}
+  if(M.receiptsUsed.includes(o.fd)||M.receiptsUsed.includes(o.k)){toast('这位好友的回执已经领过了');return;}
   rollDay();if(M.receiptToday>=RULES.receiptPerDay){toast(`今天已领满 ${RULES.receiptPerDay} 张回执，明天再来`,'bad');return;}
-  M.receiptsUsed.push(o.k);if(M.receiptsUsed.length>300)M.receiptsUsed.shift();
+  M.receiptsUsed.push(o.fd);if(M.receiptsUsed.length>300)M.receiptsUsed.shift();   // 每位受邀设备只算一次
   M.receiptToday++;M.invitesOk++;addBonus(RULES.inviterBonus);saveMeta();
   toast(`「${o.from}」完成了首次撤离，你获得 ${RULES.inviterBonus} 次行动`,'ok');
  }else if((m=/#s=([A-Za-z0-9_-]+)/.exec(text))){
-  const o=unpackJSON(m[1]);if(!o||!nameOK(o.n)||typeof o.ws!=='number'){toast('战绩链接不完整','bad');return;}
-  if(M.name&&normName(o.n)===normName(M.name)){toast('这是你自己的战绩');return;}
-  const k=normName(o.n),old=M.friends[k];
-  if(!old||old.t<=o.t){M.friends[k]={n:String(o.n),w:String(o.w),ws:Math.max(0,o.ws|0),b:Math.max(0,o.b|0),c:Math.max(0,o.c|0),t:+o.t||0};saveMeta();}
-  toast(`已把「${o.n}」加入好友榜（本周 ${o.ws} 分）`,'ok');
+  const o=unpackJSON(m[1]);if(!o||!nameOK(o.n)||!didOK(o.d)||typeof o.ws!=='number'){toast('战绩链接不完整','bad');return;}
+  if(o.d===M.did){toast('这是你自己的战绩');return;}
+  const old=M.friends[o.d];                                   // 按设备码区分：同名的两个人各占一行
+  if(!old||old.t<=o.t){M.friends[o.d]={n:String(o.n),d:o.d,w:String(o.w),ws:Math.max(0,o.ws|0),b:Math.max(0,o.b|0),c:Math.max(0,o.c|0),t:+o.t||0};saveMeta();}
+  toast(`已把「${o.n}」${didTag(o.d)} 加入好友榜（本周 ${o.ws} 分）`,'ok');
  }else toast('没认出这段内容，支持口令、邀请、回执、战绩链接','bad');
  renderLobby();
 }
@@ -2107,18 +2122,17 @@ async function copyText(s){
  toast('请长按选中后复制');return false;
 }
 async function shareOrCopy(title,text,url){
- if(navigator.share){try{await navigator.share({title,text,url});return;}catch(e){if(e&&e.name==='AbortError')return;}}
- copyText(text+'\n'+url);
+ if(navigator.share){try{await navigator.share(url?{title,text,url}:{title,text});return;}catch(e){if(e&&e.name==='AbortError')return;}}
+ copyText(url?text+'\n'+url:text);
 }
 function modal(html){const m=$('modal');$('modalBox').innerHTML=html;m.hidden=false;return $('modalBox');}
 function closeModal(){$('modal').hidden=true;}
 function openNameModal(suggest){
- const renaming=!!M.name,invite=pendingInvite&&!renaming,pass=pendingPass&&!renaming;
+ const renaming=!!M.name,invite=pendingInvite&&!renaming;
  const box=modal(`<div class="res">${renaming?'修改代号':'设置代号'}</div>
-  <p class="resSub">代号会出现在好友榜和你发出的链接里，2–12 个字：中英文、数字或 _ - ·。</p>
-  ${invite?`<p class="okline">你被「${esc(pendingInvite)}」邀请，起好代号就能多得 ${RULES.inviteeBonus} 次行动。</p>`:''}
-  ${pass?`<p class="okline">收到给「${esc(pendingPass.name)}」的无限次口令，用这个代号即可生效。</p>`:''}
-  ${renaming?'<p class="resSub">改名后，发给旧代号的口令会失效；好友那边需要你重新发一次战绩链接。</p>':''}
+  <p class="resSub">代号是你在好友榜上显示的名字，2–12 个字：中英文、数字或 _ - ·。可以和别人重名，系统用设备码区分。</p>
+  ${invite?`<p class="okline">你被「${esc(pendingInvite.n)}」邀请，起好代号就能多得 ${RULES.inviteeBonus} 次行动。</p>`:''}
+  ${renaming?'<p class="resSub">改名不影响口令和次数；好友那边要等你再发一次战绩链接才会显示新名字。</p>':''}
   <input id="nameInput" maxlength="12" autocomplete="off" spellcheck="false" placeholder="例如：夜枭" value="${esc(suggest||(renaming?M.name:''))}">
   <div class="err" id="nameErr"></div>
   <div class="tools"><button class="primary" id="nameOk">确定</button>${renaming?'<button class="btn" id="nameCancel">取消</button>':''}</div>`);
@@ -2126,9 +2140,8 @@ function openNameModal(suggest){
  const go=async()=>{
   const v=inp.value.trim();if(!nameOK(v)){box.querySelector('#nameErr').textContent='2–12 个字，只能用中英文、数字或 _ - ·';return;}
   const first=!M.name;M.name=v;if(first)M.created=Date.now();
-  if(first&&pendingInvite&&normName(pendingInvite)!==normName(v)){M.invitedBy=pendingInvite;addBonus(RULES.inviteeBonus);}
-  pendingInvite='';saveMeta();closeModal();
-  if(pendingPass){const p=pendingPass;pendingPass=null;await handleIncoming(p.text);}
+  if(first&&pendingInvite&&pendingInvite.d!==M.did){M.invitedBy=pendingInvite;addBonus(RULES.inviteeBonus);}
+  pendingInvite=null;saveMeta();closeModal();
   await refreshPass();renderLobby();
   if(first)toast(M.invitedBy?`欢迎，${v}！已到账 ${RULES.inviteeBonus} 次邀请礼包`:`欢迎，${v}！`,'ok');
  };
@@ -2154,8 +2167,8 @@ function openInviteModal(){
   <input readonly id="invLink" value="${esc(link)}">
   <div class="tools"><button class="primary" id="invShare">发给好友</button><button class="btn" id="invCopy">复制链接</button></div>
   <p class="resSub">已靠回执拿到奖励：${M.invitesOk} 人。</p>
-  ${rc?`<div class="okline">你是「${esc(M.invitedBy)}」邀请来的，把回执发给 TA，TA 能得 ${RULES.inviterBonus} 次行动。<div class="tools" style="margin-top:8px"><button class="btn" id="rcShare">发送回执</button></div></div>`
-   :M.invitedBy?`<p class="resSub">你是「${esc(M.invitedBy)}」邀请来的，完成第一次撤离后就能给 TA 发回执。</p>`:''}
+  ${rc?`<div class="okline">你是「${esc(M.invitedBy.n)}」邀请来的，把回执发给 TA，TA 能得 ${RULES.inviterBonus} 次行动。<div class="tools" style="margin-top:8px"><button class="btn" id="rcShare">发送回执</button></div></div>`
+   :M.invitedBy?`<p class="resSub">你是「${esc(M.invitedBy.n)}」邀请来的，完成第一次撤离后就能给 TA 发回执。</p>`:''}
   <div class="tools"><button class="btn" id="invClose">关闭</button></div>`);
  box.querySelector('#invShare').addEventListener('click',()=>shareOrCopy('暗礁行动','来《暗礁行动》港区搜打撤，用我的邀请链接多得 3 次行动：',link));
  box.querySelector('#invCopy').addEventListener('click',()=>copyText(link));
@@ -2175,11 +2188,11 @@ function renderMeta(){
   :`<span class="pill${p.free?'':' dim'}">今日免费 ${p.free}/${RULES.freePerDay}</span><span class="pill${p.bonus?' ok':' dim'}">奖励次数 ${p.bonus}</span>`;
  // 好友榜
  const w=weekStats(),rows=Object.values(M.friends).filter(f=>f.w===w.wk);
- if(M.name)rows.push({n:M.name,ws:w.total,b:w.best,c:w.count,me:true});
+ if(M.name)rows.push({n:M.name,d:M.did,ws:w.total,b:w.best,c:w.count,me:true});
  rows.sort((a,b)=>b.ws-a.ws||b.b-a.b);
  const stale=Object.values(M.friends).length-rows.filter(r=>!r.me).length;
  $('weekInfo').textContent=`${w.wk} 起 · 每人本周最好 ${RULES.weekTop} 局`;
- $('board').innerHTML=rows.length?rows.map((r,i)=>`<div class="brow${r.me?' me':''}"><span class="rk">${i+1}</span><span class="bn">${esc(r.n)}${r.me?' <small>我</small>':''}</span><span class="bs">${r.ws}</span><span class="bm">${r.c} 局 · 最高 ${r.b}</span></div>`).join('')
+ $('board').innerHTML=rows.length?rows.map((r,i)=>`<div class="brow${r.me?' me':''}"><span class="rk">${i+1}</span><span class="bn">${esc(r.n)} <i class="tag">${didTag(r.d)}</i>${r.me?' <small>我</small>':''}</span><span class="bs">${r.ws}</span><span class="bm">${r.c} 局 · 最高 ${r.b}</span></div>`).join('')
   +(stale?`<p class="note">另有 ${stale} 位好友的战绩还是上周的，让 TA 们再发一次战绩链接。</p>`:'')
   :'<div class="empty">还没有好友战绩。打完一局后点「分享我的战绩」发到群里，大家互相打开链接就能组成榜单。</div>';
  $('myRaids').innerHTML=M.raids.length?M.raids.slice(0,8).map(r=>{const d=new Date(r.t);
@@ -2192,7 +2205,7 @@ function metaSummary(r){
  const acts=$('resActions');acts.innerHTML='<button class="btn" id="sumShare">分享战绩</button>';
  acts.querySelector('#sumShare').addEventListener('click',shareScore);
  if(r.ok&&M.invitedBy&&M.receiptKey&&M.raids.filter(x=>x.ok).length===1){
-  acts.insertAdjacentHTML('beforeend',`<button class="btn" id="sumRc">给「${esc(M.invitedBy)}」发回执（+${RULES.inviterBonus} 次）</button>`);
+  acts.insertAdjacentHTML('beforeend',`<button class="btn" id="sumRc">给「${esc(M.invitedBy.n)}」发回执（+${RULES.inviterBonus} 次）</button>`);
   acts.querySelector('#sumRc').addEventListener('click',()=>shareOrCopy('暗礁行动 · 回执',`我在《暗礁行动》完成了首次撤离！打开这个回执链接，你能得 ${RULES.inviterBonus} 次行动：`,receiptLink()));
  }
 }
@@ -2201,9 +2214,23 @@ function initMetaUI(){
  $('inviteBtn').addEventListener('click',openInviteModal);
  $('pasteBtn').addEventListener('click',openPasteModal);
  $('pasteBtn2').addEventListener('click',openPasteModal);
+ $('didBtn').addEventListener('click',openDeviceModal);
  $('shareScoreBtn').addEventListener('click',shareScore);
  $('modal').addEventListener('click',e=>{if(e.target===$('modal')&&M.name)closeModal();});
  window.addEventListener('hashchange',readURL);
+}
+function openDeviceModal(){
+ const code=fmtDid(M.did),p=PASS_OK?parsePass(M.pass):null;
+ const box=modal(`<div class="res">本机设备码</div>
+  <p class="resSub">首次打开时随机生成，用来区分重名的玩家，不含任何个人或设备信息。想要无限次口令，就把它发给管理员。</p>
+  <input readonly id="didText" value="${code}" style="font:700 20px var(--mono);letter-spacing:.06em;text-align:center">
+  <div class="tools"><button class="primary" id="didCopy">复制设备码</button><button class="btn" id="didShare">发给管理员</button></div>
+  ${p?`<p class="okline">本机已有无限次口令${p.label?`（${esc(p.label)}）`:''}${p.until?`，${p.until} 到期`:'，永久有效'}。</p>`:''}
+  <p class="resSub">注意：换手机、换浏览器、清除网站数据，或从 Safari 改用装到主屏幕的 App，设备码都会变，口令需要重发。请在你以后常用的那个 App 里复制设备码。</p>
+  <div class="tools"><button class="btn" id="didClose">关闭</button></div>`);
+ box.querySelector('#didCopy').addEventListener('click',()=>copyText(code));
+ box.querySelector('#didShare').addEventListener('click',()=>shareOrCopy('暗礁行动 · 设备码',`我的代号：${M.name||'未设置'}，设备码：${code}`,''));
+ box.querySelector('#didClose').addEventListener('click',closeModal);
 }
 
 /* ---- src/view/lobby.js ---- */
