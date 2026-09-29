@@ -114,7 +114,10 @@ html.touch .help .kb,html:not(.touch) .help .tc{display:none}   /* 操作说明�
 .sw{width:28px;height:28px;display:grid;place-items:center;font:600 11px var(--mono);color:#0b1113;background:var(--rc)}
 .lr .n{font-size:13px;font-weight:600;color:var(--rc)}
 .lr .m{font:11px var(--mono);color:var(--muted)}
-.lr.nofit{box-shadow:inset 0 0 0 2px var(--red)}
+/* 背包放不下全部时（view/raid-ui.js syncLoot）：「全部拾取」会拿的打勾描琥珀边，会留下的变暗；单点变暗的格子照样能拿 */
+.lr.pick{box-shadow:inset 0 0 0 1px var(--amber)}.lr.pick .n::before{content:'✓ ';color:var(--amber)}
+.lr.skip{opacity:.5}
+.lr.nofit{box-shadow:inset 0 0 0 2px var(--red)}   /* 写在 .pick 后面，放不下的红框盖过勾选描边 */
 .lr.unk{cursor:default}.lr.unk .n{color:var(--muted)}.lr.unk .sw{background:#243236;color:var(--muted)}
 .pb{height:3px;background:#223034;margin-top:5px}.pb b{display:block;height:100%;background:var(--amber);width:0}
 #loot footer{display:flex;gap:8px;padding:10px 12px;align-items:center;justify-content:space-between}
@@ -311,8 +314,8 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
   <details class="help" open data-pane="help">
    <summary>操作与规则</summary>
    <p class="kb"><kbd>WASD</kbd> 移动 · <kbd>鼠标</kbd> 瞄准 / 左键射击 · <kbd>Shift</kbd> 冲刺 · <kbd>R</kbd> 换弹 · <kbd>F</kbd> 搜索 / 再按全部拾取 · <kbd>H</kbd> 治疗 · <kbd>Tab</kbd> 背包 · <kbd>M</kbd> 地图 · <kbd>Esc</kbd> 暂停。</p>
-   <p class="tc">左半屏任意位置拖动移动，推到底自动奔跑；按住右下角开火键会自动瞄准视野内最近的敌人，按住后拖动可手动指定方向。靠近容器点「搜索」打开，再点一次全部拾取；「换弹」「治疗」在开火键旁边，「背包」「地图」「暂停」在上方。</p>
-   <p>搜索容器会逐件揭示物品，品质越高揭示越慢。在时限内抵达本局开放的撤离点并停留 6 秒即撤离成功，带出的物资进入仓库。阵亡则失去全部配装和背包，只有 2 格安全箱里的东西能保住。开火声会引来附近敌人。</p>
+   <p class="tc">左半屏任意位置拖动移动，推到底自动奔跑；按住右下角开火键会自动瞄准视野内最近的敌人，按住后拖动可手动指定方向。靠近容器点「搜索」打开，再点一次全部拾取，在画面上轻点一下关闭；「换弹」「治疗」在开火键旁边，「背包」「地图」「暂停」在上方。</p>
+   <p>搜索容器会逐件揭示物品，品质越高揭示越慢；背包放不下全部时，「全部拾取」挑总价值最高的一组（打勾的）。护甲碎了可以在背包里「使用」陶瓷插板修防弹衣。在时限内抵达本局开放的撤离点并停留 6 秒即撤离成功，带出的物资进入仓库。阵亡则失去全部配装和背包，只有 2 格安全箱里的东西能保住。开火声会引来附近敌人。</p>
    <p>当前是<b id="uiNow"></b>界面（按设备自动选择）。<button class="linkbtn" id="uiSwitch"></button></p>
    <p class="mo">画面方向：<span id="orientOpts"><button class="linkbtn" data-orient="auto">跟随手机</button> · <button class="linkbtn" data-orient="land">横屏</button> · <button class="linkbtn" data-orient="port">竖屏</button></span>。选的方向和手机拿的方向不一样时，整个画面会转过来，手机锁了自动旋转也能横着玩。</p>
   </details>
@@ -1040,6 +1043,7 @@ const ARMORS={
 const HELMETS={none:{n:'无头盔',lvl:0,dur:0,price:0},h2:{n:'二级头盔',lvl:2,dur:30,price:4500},h3:{n:'三级头盔',lvl:3,dur:42,price:13000},h4:{n:'四级头盔',lvl:4,dur:55,price:30000}};
 const BAGS={none:{n:'胸挂口袋',cap:8,price:0},b1:{n:'小型背包',cap:16,price:5500},b2:{n:'战术背包',cap:26,price:15000},b3:{n:'大型登山包',cap:38,price:29000}};
 const MEDS={band:{n:'绷带',heal:22,t:1.8,price:700},kit:{n:'急救包',heal:65,t:4,price:3200}};
+const PLATE={fix:40,t:3};   // 陶瓷插板（物品 plate）：局内在背包里「使用」，防弹衣耐久 +40（不超过上限），用时 3 秒
 const SAFE_CAP=2;
 function gearPrice(id){return (WEAPONS[id]||ARMORS[id]||HELMETS[id]||BAGS[id]||{price:0}).price;}
 
@@ -1083,7 +1087,7 @@ function rollLoot(type,mode,rng){
  return out;
 }
 
-return Object.freeze({RC,RN,REVEAL,ITEMS,BY_R,iName,iR,iSize,iVal,iCat,WEAPONS,ARMORS,HELMETS,BAGS,MEDS,SAFE_CAP,gearPrice,MODES,EK,CONT,CONT_GLYPH,rollItem,rollLoot});
+return Object.freeze({RC,RN,REVEAL,ITEMS,BY_R,iName,iR,iSize,iVal,iCat,WEAPONS,ARMORS,HELMETS,BAGS,MEDS,PLATE,SAFE_CAP,gearPrice,MODES,EK,CONT,CONT_GLYPH,rollItem,rollLoot});
 })();
 /* ---- core/world.js ---- */
 __m[3]=(function(){
@@ -1354,10 +1358,10 @@ __m[4]=(function(){
  createRaid({mode, loadout, rng, diff}) → raid：对局状态 + 操作方法。不碰 DOM、音频、存储，也不认识平台。
  - 每帧 raid.update(dt, control)。control 是平台层的操作对象：read() 给出「往哪走、跑不跑、开不开火」，aim() 给出朝向。
  - 画面、音效、震动都靠事件：raid.events 里依次放 {type, …}，外层每帧取走（见 view/effects.js）。
- - 玩家命令（键盘和触屏按钮共用）：raid.command('inv' | 'back' | 'interact' | 'reload' | 'heal' | 'map')。
+ - 玩家命令（键盘和触屏按钮共用）：raid.command('inv' | 'back' | 'interact' | 'reload' | 'heal' | 'map')；背包里的陶瓷插板由界面调 raid.usePlate(i)。
  - 对局结束时发 {type:'end', result}；存档结算、记录积分由外层做（core/profile.js、core/meta.js）。 */
 const {TAU,clamp,angDiff}=__m[1];
-const {BY_R,REVEAL,WEAPONS,ARMORS,HELMETS,BAGS,MEDS,SAFE_CAP,MODES,EK,iR,iSize,iVal,rollItem}=__m[2];
+const {BY_R,REVEAL,WEAPONS,ARMORS,HELMETS,BAGS,MEDS,PLATE,SAFE_CAP,MODES,EK,iR,iSize,iVal,rollItem}=__m[2];
 const {createWorld,segCirc}=__m[3];
 
 const VIS_R=760;
@@ -1373,9 +1377,9 @@ function createRaid({mode,loadout,rng,diff=1}){
  let near=world.extracts[0];for(const x of world.extracts)if(Math.hypot(x.x-sp.x,x.y-sp.y)<Math.hypot(near.x-sp.x,near.y-sp.y))near=x;
  const pool=world.extracts.filter(x=>x!==near).sort(()=>random()-.5);
  const pl=fighter(sp.x,sp.y,{wid:eq.w,w:W,mag:W.mag,ammo:W.mag*4,armor:{...ARMORS[eq.a],cur:ARMORS[eq.a].dur},helmet:{...HELMETS[eq.h],cur:HELMETS[eq.h].dur},
-  bag:[],bagId:eq.b,cap:BAGS[eq.b].cap,safe:[],meds:{band:eq.meds.band,kit:eq.meds.kit},stam:100,heal:null,trig:true,moving:false,sprinting:false,a:-Math.PI/2});
+  bag:[],bagId:eq.b,cap:BAGS[eq.b].cap,safe:[],meds:{band:eq.meds.band,kit:eq.meds.kit},stam:100,heal:null,fix:null,trig:true,moving:false,sprinting:false,a:-Math.PI/2});
  const G={mode,t:0,T,time:T,world,pl,enemies:[],bullets:[],events:[],kills:0,killed:{},extT:0,ext:pool.slice(0,2),extZone:null,
-  lootC:null,lootVer:0,near:null,paused:false,over:false,result:null,zone:'',zoneCk:0,valueIn:eq.value,bigMap:false,invOpen:false,stepT:0};
+  lootC:null,lootVer:0,near:null,paused:false,over:false,result:null,zone:'',zoneCk:0,valueIn:eq.value,bigMap:false,invOpen:false,stepT:0,plateTip:false};
  let pathBudget=0;
  const emit=(type,o)=>{G.events.push(Object.assign({type},o));};
  const msg=(t,c,life)=>emit('msg',{t,c:c||'#d9e1de',life:life||4});
@@ -1431,9 +1435,9 @@ function createRaid({mode,loadout,rng,diff=1}){
   const C=ctl.read(G);let mx=C.mx,my=C.my;
   const ml=Math.hypot(mx,my);if(ml>1){mx/=ml;my/=ml;}
   const moving=ml>.1;let spd=185*(p.armor.slow||1);
-  const sprint=C.sprint&&moving&&p.stam>4&&!p.heal;
+  const busy=p.heal||p.fix,sprint=C.sprint&&moving&&p.stam>4&&!busy;
   if(sprint){spd*=1.45;p.stam-=dt*20;}else p.stam=Math.min(100,p.stam+dt*(moving?10:18));
-  if(p.heal)spd*=.55;
+  if(busy)spd*=.55;
   p.sprinting=sprint;p.moving=moving;
   moveEnt(p,mx*spd*dt,my*spd*dt);p.vx=mx*spd;p.vy=my*spd;
   if(sprint){G.stepT-=dt;if(G.stepT<=0){G.stepT=.4;noise(p.x,p.y,240);}}
@@ -1441,9 +1445,10 @@ function createRaid({mode,loadout,rng,diff=1}){
   p.cd-=dt;p.flash=Math.max(0,p.flash-dt);p.hitT=Math.max(0,p.hitT-dt);
   if(p.reload>0){p.reload-=dt;if(p.reload<=0){const take=Math.min(p.w.mag-p.mag,p.ammo);p.mag+=take;p.ammo-=take;}}
   if(p.heal){p.heal.t-=dt;if(p.heal.t<=0){p.hp=Math.min(p.maxhp,p.hp+MEDS[p.heal.k].heal);p.meds[p.heal.k]--;p.heal=null;emit('heal');}}
+  if(p.fix){p.fix.t-=dt;if(p.fix.t<=0){p.armor.cur=Math.min(p.armor.dur,p.armor.cur+PLATE.fix);p.fix=null;emit('fix');}}
   const trig=C.fire&&!G.invOpen&&!G.bigMap;
   if(!trig)p.trig=true;
-  if(trig&&!p.sprinting&&!p.heal&&p.reload<=0&&p.cd<=0){
+  if(trig&&!p.sprinting&&!busy&&p.reload<=0&&p.cd<=0){
    if(p.w.semi&&!p.trig&&!C.autoSemi){}
    else if(p.mag>0){shoot(p,true,0);p.mag--;p.cd=60/p.w.rpm;p.trig=false;}
    else{p.trig=false;if(p.ammo>0)startReload(p);else{emit('empty');p.cd=.35;msg('弹药耗尽，搜索武器箱或遗体补充','#e5484d',2);}}
@@ -1451,15 +1456,22 @@ function createRaid({mode,loadout,rng,diff=1}){
  }
  function startReload(e){
   if(e.reload>0||e.mag>=e.w.mag)return;
-  if(e===pl){if(pl.ammo<=0||pl.heal)return;emit('reload');}
+  if(e===pl){if(pl.ammo<=0||pl.heal||pl.fix)return;emit('reload');}
   e.reload=e.w.rel;
  }
  function startHeal(){
-  const p=pl;if(p.dead||p.heal)return;
+  const p=pl;if(p.dead||p.heal||p.fix)return;
   if(p.hp>=p.maxhp){msg('生命值已满');return;}
   let k=null;if(p.maxhp-p.hp>=40&&p.meds.kit>0)k='kit';else if(p.meds.band>0)k='band';else if(p.meds.kit>0)k='kit';
   if(!k){msg('没有医疗物资','#e5484d');return;}
   p.reload=0;p.heal={k,t:MEDS[k].t,T:MEDS[k].t};
+ }
+ // 背包第 i 格的陶瓷插板修防弹衣：插板当场用掉，PLATE.t 秒后耐久 +PLATE.fix；修的时候和治疗一样慢走、不能开火和换弹。返回有没有开始
+ function usePlate(i){
+  const p=pl;if(p.dead||p.heal||p.fix||p.bag[i]!=='plate')return false;
+  if(!p.armor.lvl){msg('没穿防弹衣，插板用不上','#e5484d');return false;}
+  if(p.armor.cur>=p.armor.dur){msg('防弹衣耐久已满');return false;}
+  p.bag.splice(i,1);p.reload=0;p.fix={t:PLATE.t,T:PLATE.t};return true;
  }
  function shoot(e,isP,err){
   const Wp=e.w,ca=Math.cos(e.a),sa=Math.sin(e.a);
@@ -1580,7 +1592,7 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(e===pl){
    if(pl.dead)return;
    emit('hurt',{a:Math.atan2(b.src.y-pl.y,b.src.x-pl.x)});
-   if(pl.hp<=0){pl.hp=0;pl.dead=true;pl.heal=null;emit('die');end(false,`被${b.src.d.n}击杀`);}
+   if(pl.hp<=0){pl.hp=0;pl.dead=true;pl.heal=null;pl.fix=null;emit('die');end(false,`被${b.src.d.n}击杀`);}
   }else{
    emit('hit',{head});alertEnemy(e,pl.x,pl.y);
    if(e.hp<=0)killEnemy(e);
@@ -1618,18 +1630,27 @@ function createRaid({mode,loadout,rng,diff=1}){
    else{pl.meds[it.sp]++;msg(`${MEDS[it.sp].n} +1`,'#4fc3b8',2);}
   }else{
    if(bagUsed()+iSize(it.id)>pl.cap){if(!quiet)msg('背包空间不足，打开背包整理或丢弃','#e5484d',2.5);return false;}
-   pl.bag.push(it.id);
+   toBag(it.id);
   }
   c.items.splice(idx,1);if(!quiet)emit('take');G.lootVer++;if(G.lootC===c&&!c.items.length)closeLoot();return true;
  }
+ // 第一次捡到陶瓷插板时提示它能修防弹衣
+ function toBag(id){pl.bag.push(id);if(id==='plate'&&!G.plateTip){G.plateTip=true;msg(`陶瓷插板：在背包里点「使用」，防弹衣耐久 +${PLATE.fix}`,'#4f95e6',5);}}
+ // 「全部拾取」拿哪些（面板里已揭示的格子下标）：补给不占背包，都拿；物品在背包剩余格数里挑总价值最高的一组，放得下就全拿。
+ // left：已揭示却不拿的件数；界面据此给要拿的打勾、把「全部拾取」换成「拾取勾选」
+ function lootPlan(c){
+  const take=new Set(),its=[];let left=0;
+  c.items.forEach((it,i)=>{if(it.rev)(it.sp?take.add(i):its.push(i));});
+  for(const k of bestFit(its.map(i=>c.items[i].id),pl.cap-bagUsed()))take.add(its[k]);
+  for(const i of its)if(!take.has(i))left++;
+  return{take,left};
+ }
  function takeAll(){
   const c=G.lootC;if(!c)return;
-  const order=c.items.map((it,i)=>({it,i})).filter(o=>o.it.rev).sort((a,b)=>(b.it.id?iVal(b.it.id):1e9)-(a.it.id?iVal(a.it.id):1e9));
-  let took=0,full=false;const rm=[];
-  for(const o of order){const it=o.it;if(it.id&&bagUsed()+iSize(it.id)>pl.cap){full=true;continue;}
-   if(it.sp){if(it.sp==='ammo')pl.ammo+=Math.round(pl.w.mag*rnd(1,2));else pl.meds[it.sp]++;}else pl.bag.push(it.id);rm.push(it);took++;}
+  const {take,left}=lootPlan(c),rm=c.items.filter((it,i)=>take.has(i));
+  for(const it of rm){if(it.sp){if(it.sp==='ammo')pl.ammo+=Math.round(pl.w.mag*rnd(1,2));else pl.meds[it.sp]++;}else toBag(it.id);}
   c.items=c.items.filter(it=>!rm.includes(it));
-  if(took)emit('take');if(full)msg('背包已满，部分物品未拾取','#e5484d',2.5);G.lootVer++;if(!c.items.length)closeLoot();
+  if(rm.length)emit('take');if(left)msg(rm.length?'背包放不下全部，挑了总价值最高的一组':'背包空间不足，打开背包整理或丢弃','#e5484d',2.5);G.lootVer++;if(!c.items.length)closeLoot();
  }
  // 面板里还有东西：全部拾取；面板空了（打开的是搜空的容器）：换到旁边另一个容器，没有就关掉
  function interact(){
@@ -1686,13 +1707,25 @@ function createRaid({mode,loadout,rng,diff=1}){
  // 界面直接调的拾取、背包操作跟命令一样，暂停或结束后不理（面板被暂停层盖住，但键盘和排着队的点击还会进来）；closeLoot 只是关面板，不拦
  const live=f=>(...a)=>G.paused||G.over?false:f(...a);
  return Object.assign(G,{update,command,closeLoot,bagUsed,safeUsed,bagValue,
-  toggleInv:live(toggleInv),takeAll:live(takeAll),stow:live(stow),unstow:live(unstow),drop:live(drop),
+  toggleInv:live(toggleInv),takeAll:live(takeAll),stow:live(stow),unstow:live(unstow),drop:live(drop),usePlate:live(usePlate),
   take:live(i=>G.lootC?takeItem(G.lootC,i):false),
+  lootPlan:()=>G.lootC?lootPlan(G.lootC):{take:new Set(),left:0},
   resume(){G.paused=false;},
   abandon(){if(G.over)return;G.paused=false;pl.dead=true;end(false,'主动放弃行动');}});
 }
 
-return Object.freeze({VIS_R,createRaid});
+// 0/1 背包：ids 是物品 id，在 free 格内挑总价值最高的一组，返回选中的下标（升序）。按剩余格数做动态规划，地上一大堆物资也不慢
+function bestFit(ids,free){
+ let best=new Array(Math.max(0,free)+1).fill(0);const keep=[];
+ for(const id of ids){const s=iSize(id),v=iVal(id),nb=best.slice(),k=new Array(best.length).fill(false);
+  for(let c=s;c<best.length;c++)if(best[c-s]+v>nb[c]){nb[c]=best[c-s]+v;k[c]=true;}
+  keep.push(k);best=nb;}
+ const out=[];let c=best.length-1;
+ for(let i=ids.length-1;i>=0;i--)if(keep[i][c]){out.push(i);c-=iSize(ids[i]);}
+ return out.reverse();
+}
+
+return Object.freeze({VIS_R,createRaid,bestFit});
 })();
 /* ---- core/profile.js ---- */
 __m[5]=(function(){
@@ -2140,7 +2173,7 @@ __m[15]=(function(){
  平台差异（角落面板、底部面板、瞄准 / 摇杆显示、提示位置、避让区域）由当前平台对象的 hud 提供，生命条 hpBar 两边共用（platform/desktop、platform/mobile）；
  平台对象按最近一次输入选用，所以带键盘的平板或触屏笔记本也能随时切换。 */
 const {TAU,clamp}=__m[1];
-const {MEDS}=__m[2];
+const {MEDS,PLATE}=__m[2];
 const {MW,MH}=__m[3];
 const {ctx,V,SAFE,LAYERS,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
 
@@ -2155,6 +2188,13 @@ function hpBar(x,y,w,h,p,lag,seg){
  if(lag>p.hp){ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(x+hp,y,f(lag)-hp,h);}
  ctx.fillStyle=hpCol(Math.ceil(p.hp));ctx.fillRect(x,y,hp,h);
  if(seg){ctx.fillStyle='rgba(8,13,15,.8)';for(let i=10;i<p.maxhp;i+=10)ctx.fillRect(x+f(i),y,1,h);}
+}
+// 护具耐久条（两端共用）：没有护具只画底槽；fix 是修甲进度（p.fix，只修防弹衣），修的时候用浅蓝预告修完到哪
+function protBar(x,y,w,h,a,fix){
+ ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(x,y,w,h);if(!a.lvl)return;
+ const f=v=>w*clamp(v/a.dur,0,1),cur=f(a.cur);
+ if(fix){ctx.fillStyle=`rgba(79,149,230,${.3+.45*(1-fix.t/fix.T)})`;ctx.fillRect(x+cur,y,f(a.cur+PLATE.fix)-cur,h);}
+ ctx.fillStyle='#4f95e6';ctx.fillRect(x,y,cur,h);
 }
 
 function drawHUD(G,fx,PF){
@@ -2183,6 +2223,7 @@ function drawHUD(G,fx,PF){
  if(G.extZone){const p=G.extT/6;const w=Math.min(320,W-40);panel(W/2-w/2,cy-34,w,44);txt(`正在撤离 · ${G.extZone.n}`,W/2-w/2+12,cy-12,`700 14px ${F_BODY}`,'#4fc3b8');
   txt((6-G.extT).toFixed(1)+'s',W/2+w/2-12,cy-12,`700 14px ${F_MONO}`,'#4fc3b8','right');bar(W/2-w/2+12,cy-2,w-24,4,p,'#4fc3b8');}
  else if(pl.heal)txt(`正在使用 ${MEDS[pl.heal.k].n} · ${pl.heal.t.toFixed(1)}s`,W/2,cy,`700 14px ${F_BODY}`,'#62c46f','center');
+ else if(pl.fix)txt(`正在更换陶瓷插板 · ${pl.fix.t.toFixed(1)}s`,W/2,cy,`700 14px ${F_BODY}`,'#4f95e6','center');
  else if(G.near&&!G.lootC&&!pl.dead){const c=G.near,s=(c.opened&&!c.items.length?'已搜空 · ':P.interactHint+(c.opened?'继续搜索 · ':'搜索 · '))+c.name;
   ctx.font=`700 14px ${F_BODY}`;const tw=ctx.measureText(s).width+26;panel(W/2-tw/2,cy-22,tw,32);txt(s,W/2,cy-1,`700 14px ${F_BODY}`,c.opened&&!c.items.length?'#82939a':'#f0a43a','center');}
  // extract edge markers
@@ -2218,14 +2259,14 @@ function drawBigMap(G,PF){
  ctx.save();ctx.translate(x+pl.x*s,y+pl.y*s);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6);ctx.lineTo(-6,-6);ctx.fill();ctx.restore();
 }
 
-return Object.freeze({hpCol,hpBar,drawHUD});
+return Object.freeze({hpCol,hpBar,protBar,drawHUD});
 })();
 /* ---- platform/desktop/hud.js ---- */
 __m[16]=(function(){
 /* ================= 电脑版 HUD：左上计时、顶部背包、左下生命、右下武器、鼠标准星 ================= */
 const {TAU,clamp,fmt,mmss}=__m[1];
 const {ctx,V,F_DISP,F_BODY,F_MONO,MINI_W,panel,txt,bar,toWorld}=__m[12];
-const {hpBar,hpCol}=__m[15];
+const {hpBar,hpCol,protBar}=__m[15];
 const {IN}=__m[14];
 
 const HUD_DESKTOP={
@@ -2269,11 +2310,12 @@ function drawVitals(p,x,y,w,lag){
  hpBar(x+12,y+26,w-24,8,p,p.dead?0:lag,true);
  const ar=p.armor,he=p.helmet,hw=(w-36)/2;
  txt(ar.lvl?`护甲 ${ar.lvl}级`:'无护甲',x+12,y+52,`600 11px ${F_BODY}`,'#82939a');if(ar.lvl)txt(Math.ceil(ar.cur)+'',x+12+hw,y+52,`600 11px ${F_MONO}`,'#4f95e6','right');
- bar(x+12,y+57,hw,4,ar.lvl?ar.cur/ar.dur:0,'#4f95e6');
+ protBar(x+12,y+57,hw,4,ar,p.fix);
  txt(he.lvl?`头盔 ${he.lvl}级`:'无头盔',x+24+hw,y+52,`600 11px ${F_BODY}`,'#82939a');if(he.lvl)txt(Math.ceil(he.cur)+'',x+w-12,y+52,`600 11px ${F_MONO}`,'#4f95e6','right');
  bar(x+24+hw,y+57,hw,4,he.lvl?he.cur/he.dur:0,'#4f95e6');
  bar(x+12,y+70,w-24,2,p.stam/100,'#f0a43a');
- txt(`绷带 ${p.meds.band} · 急救包 ${p.meds.kit}`,x+12,y+92,`600 12px ${F_BODY}`,'#62c46f');
+ const pc=p.bag.filter(id=>id==='plate').length;   // 背包里的陶瓷插板（Tab 打开背包「使用」修防弹衣）
+ txt(`绷带 ${p.meds.band} · 急救包 ${p.meds.kit}`+(pc?` · 插板 ${pc}`:''),x+12,y+92,`600 12px ${F_BODY}`,'#62c46f');
  txt('H 治疗',x+w-12,y+92,`600 11px ${F_MONO}`,'#82939a','right');
 }
 /* 电脑版画面参数：更大的视野、镜头朝鼠标方向前瞻 */
@@ -2363,8 +2405,9 @@ const {toLogical}=__m[13];
 const AIM={p:null,lock:null,hold:0};   // 自动瞄准：锁定的敌人；松开开火键后朝向再保持 hold 秒
 const KEYS={esc:'pause',tab:'inv',f:'interact',r:'reload',h:'heal',m:'map'};   // 触屏按钮 data-k → 玩家命令（「暂停」直接暂停，不像 Esc 先关面板）
 let hooks=null,fireBtn=null;
+const TAP={id:null,x:0,y:0,t:0};   // 画面上最近一次按下：松开时判断是不是「轻点」
 function touchCanvasDown(e){
- setScheme(true);e.preventDefault();const s=TOUCH.move,p=toLogical(e);if(s.on||p.x>V.W*.55)return;
+ setScheme(true);e.preventDefault();const s=TOUCH.move,p=toLogical(e);Object.assign(TAP,{id:e.pointerId,x:p.x,y:p.y,t:e.timeStamp});if(s.on||p.x>V.W*.55)return;
  Object.assign(s,{on:true,id:e.pointerId,ox:p.x,oy:p.y,x:0,y:0,raw:0});try{cv.setPointerCapture(e.pointerId);}catch(_){}
 }
 function touchMove(e){
@@ -2372,6 +2415,9 @@ function touchMove(e){
  if(isT(e)&&TOUCH.move.on&&TOUCH.move.id===e.pointerId)stick(TOUCH.move,e,55);
 }
 function touchUp(e){
+ // 在画面上轻点一下（挪动 < 12px、350ms 内松开）关掉搜索面板，跟点背包外的暗处关背包一样；拖动是摇杆，不算
+ if(TAP.id===e.pointerId){TAP.id=null;const p=toLogical(e),G=hooks&&hooks.getRaid();
+  if(e.type==='pointerup'&&G&&G.lootC&&!G.paused&&Math.hypot(p.x-TAP.x,p.y-TAP.y)<12&&e.timeStamp-TAP.t<350)G.closeLoot();}
  if(TOUCH.fb.on&&TOUCH.fb.id===e.pointerId){Object.assign(TOUCH.fb,{on:false,x:0,y:0,raw:0});fireBtn.classList.remove('on');}
  if(TOUCH.move.on&&TOUCH.move.id===e.pointerId)Object.assign(TOUCH.move,{on:false,x:0,y:0,raw:0});
 }
@@ -2393,7 +2439,7 @@ function initMobileInput(h){
  document.addEventListener('gesturestart',e=>e.preventDefault());
 }
 
-/* ---- 触屏按键区：显示与文字（开火键上的弹药、搜索键高亮、治疗键上的药量） ---- */
+/* ---- 触屏按键区：显示与文字（开火键上的弹药、搜索键高亮和「全部拾取 / 拾取勾选」、治疗键上的药量） ---- */
 let tuiKey='',tuiRaid=null;
 function showTouchControls(v){$('touch').hidden=!v;}
 function resetTouchUI(){tuiKey='';}
@@ -2401,11 +2447,12 @@ function syncTouchUI(G){
  if(!SCHEME.touch)return;
  if(G!==tuiRaid){tuiRaid=G;tuiKey='';}
  const p=G.pl;
- const big=p.reload>0?'换弹':p.heal?'治疗':String(p.mag),sub=p.reload>0||p.heal?'':'/'+p.ammo;
- // 面板里还有东西时「搜索」键是全部拾取；面板空了它会换到旁边另一个容器（core/raid.js interact）
- const lc=G.lootC,left=!!(lc&&lc.items.length),near=!!(G.near&&G.near!==lc&&(!G.near.opened||G.near.items.length)),fl=left?'全部<br>拾取':'搜索';
+ const act=p.reload>0?'换弹':p.heal?'治疗':p.fix?'修甲':'',big=act||String(p.mag),sub=act?'':'/'+p.ammo;
+ // 面板里还有东西时「搜索」键是全部拾取（背包放不下全部时只拿打勾的，写「拾取勾选」）；面板空了它会换到旁边另一个容器（core/raid.js interact）
+ const lc=G.lootC,left=!!(lc&&lc.items.length),near=!!(G.near&&G.near!==lc&&(!G.near.opened||G.near.items.length));
+ const lp=left?G.lootPlan():null,fl=!left?'搜索':lp.left&&lp.take.size?'拾取<br>勾选':'全部<br>拾取';
  // 生命 ≤ 60（该用急救包的线，和 view/hud.js 的 hpCol 琥珀档一致）且有药时「治疗」键转绿：读数和按键放在一起；不闪，挨打时停下治疗多半是错的
- const need=!p.dead&&!p.heal&&Math.ceil(p.hp)<=60&&p.meds.band+p.meds.kit>0;
+ const need=!p.dead&&!p.heal&&!p.fix&&Math.ceil(p.hp)<=60&&p.meds.band+p.meds.kit>0;
  const key=[big,sub,near,fl,p.meds.band,p.meds.kit,p.mag===0,left,need].join('|');if(key===tuiKey)return;tuiKey=key;
  fireBtn.innerHTML=`<b>${big}</b><small>${sub}</small>`;fireBtn.classList.toggle('empty',p.mag===0&&p.reload<=0);
  $('actF').innerHTML=fl;$('actF').classList.toggle('hot',near||left);
@@ -2460,7 +2507,7 @@ __m[21]=(function(){
 const {TAU,clamp,fmtK,mmss}=__m[1];
 const {MEDS}=__m[2];
 const {ctx,V,SAFE,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
-const {hpBar,hpCol}=__m[15];
+const {hpBar,hpCol,protBar}=__m[15];
 const {TOUCH}=__m[14];
 const {AIM}=__m[20];
 
@@ -2515,7 +2562,7 @@ function drawTouchPanel(G,x,y,lag){
  if(!port){bag();return;}
  hpBar(x+10,y+54,w-44,8,p,lag,true);txt(String(hp),x+w-10,y+62,`700 13px ${F_MONO}`,hpCol(hp),'right');
  const hw=(w-26)/2,ar=p.armor,he=p.helmet;
- txt(ar.lvl?`甲${ar.lvl} ${Math.ceil(ar.cur)}`:'无护甲',x+10,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');bar(x+10,y+83,hw,3,ar.lvl?ar.cur/ar.dur:0,'#4f95e6');
+ txt(ar.lvl?`甲${ar.lvl} ${Math.ceil(ar.cur)}`:'无护甲',x+10,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');protBar(x+10,y+83,hw,3,ar,p.fix);
  txt(he.lvl?`盔${he.lvl} ${Math.ceil(he.cur)}`:'无头盔',x+16+hw,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');bar(x+16+hw,y+83,hw,3,he.lvl?he.cur/he.dur:0,'#4f95e6');
  bar(x+10,y+91,w-20,2,p.stam/100,'#f0a43a');
  bag();
@@ -2526,12 +2573,12 @@ function drawVitals(p,{x,y,w,h},lag){
  txt(String(hp),x+10,y+19,`700 16px ${F_MONO}`,hpCol(hp));
  hpBar(bx,y+8,bw,10,p,p.dead?0:lag,true);
  if(p.stam<100)bar(bx,y+21,bw,2,p.stam/100,'#f0a43a');
- const gw=(w-30)/2;prot(p.armor,'甲','无护甲',x+10,y+h-7,gw);prot(p.helmet,'盔','无头盔',x+20+gw,y+h-7,gw);
+ const gw=(w-30)/2;prot(p.armor,'甲','无护甲',x+10,y+h-7,gw,p.fix);prot(p.helmet,'盔','无头盔',x+20+gw,y+h-7,gw,null);
 }
-function prot(a,k,none,x,y,w){
+function prot(a,k,none,x,y,w,fix){
  if(!a.lvl){txt(none,x,y,`600 10.5px ${F_BODY}`,'#82939a');return;}
  txt(k+a.lvl,x,y,`600 10.5px ${F_BODY}`,'#4f95e6');txt(String(Math.ceil(a.cur)),x+w,y,`600 10.5px ${F_MONO}`,'#4f95e6','right');
- bar(x+24,y-6,w-52,4,a.cur/a.dur,'#4f95e6');
+ protBar(x+24,y-6,w-52,4,a,fix);
 }
 // 角色脚下的生命弧（下方 120°，从左往右填）：瞟一眼角色就知道血量；弧形和敌人头顶的直条（view/render.js）区分开；满血不画。
 // 半径 r+22 世界单位：在最长的枪管（29）和治疗进度圈（view/render.js，半径 26）外面
@@ -2788,7 +2835,8 @@ function render(fdt,G,fx,PF){
   ctx.fillStyle='#4fc3b8';ctx.font=`700 15px ${F_BODY}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('撤离 · '+x.n,x.x,x.y-86);
  }
  // heal ring
- if(pl.heal){ctx.strokeStyle='#62c46f';ctx.lineWidth=4;ctx.beginPath();ctx.arc(pl.x,pl.y,26,-Math.PI/2,-Math.PI/2+TAU*(1-pl.heal.t/pl.heal.T));ctx.stroke();}
+ const act=pl.heal||pl.fix;   // 治疗绿色、修甲（陶瓷插板）蓝色
+ if(act){ctx.strokeStyle=pl.heal?'#62c46f':'#4f95e6';ctx.lineWidth=4;ctx.beginPath();ctx.arc(pl.x,pl.y,26,-Math.PI/2,-Math.PI/2+TAU*(1-act.t/act.T));ctx.stroke();}
  drawHUD(G,fx,PF);
 }
 function drawSoldier(e,col,pl){
@@ -2837,6 +2885,7 @@ function createEffects(audio){
    case'hit':ev.head?sfx.head():sfx.hit();S.hitMark=.25;S.hitHead=ev.head;break;
    case'reveal':sfx.reveal(ev.r);break;
    case'extract':sfx.ext();break;
+   case'fix':sfx.heal();break;   // 修甲完成和治疗完成同一个音
    case'armor':case'kill':case'die':case'take':case'reload':case'empty':case'heal':case'beep':sfx[ev.type]();break;
   }
  }
@@ -2937,7 +2986,7 @@ __m[27]=(function(){
 /* ================= 局内面板：搜索面板、背包、暂停、结算（DOM） =================
  面板的开关跟着对局状态走：每帧 sync(raid) 对照一次，状态变了才动 DOM；按钮只调用 raid 的方法。 */
 const {fmt,fmtK,mmss}=__m[1];
-const {RC,RN,REVEAL,MEDS,BAGS,SAFE_CAP,iName,iR,iSize,iVal}=__m[2];
+const {RC,RN,REVEAL,MEDS,PLATE,BAGS,SAFE_CAP,iName,iR,iSize,iVal}=__m[2];
 const {$,armConfirm}=__m[19];
 
 // getRaid()：进行中的对局（没有则 null）· back()：结算页「返回基地」
@@ -2953,16 +3002,19 @@ function createRaidUI({getRaid,back}){
   // 搜的时候挨打就先收起列表（触屏样式里 .hit 只留标题栏），让出视野，1.5 秒没再挨打再展开
   if(G.pl.hp<hpSeen)hitT=G.t+1.5;hpSeen=G.pl.hp;el.classList.toggle('hit',G.t<hitT);
   if(dirty){lootVer=G.lootVer;lootTouch=touch;const pl=G.pl;
+   // 背包放不下全部时，给「全部拾取」会拿的格子打勾（.pick），会留下的变暗（.skip），按钮换成「拾取勾选」（core/raid.js lootPlan）
+   const {take,left}=G.lootPlan(),part=left>0&&take.size>0,mark=i=>!left?'':take.has(i)?' pick':' skip';
    $('lootTitle').textContent=c.name;$('lootCap').textContent=`背包 ${G.bagUsed()}/${pl.cap} 格`;
-   $('lootHint').textContent=touch?'点物品拾取':'点击物品拾取';$('takeAll').textContent=touch?'全部拾取':'全部拾取 F';
+   $('lootHint').textContent=left?'放不下全部 · 已勾选总价值最高的一组':touch?'点物品拾取':'点击物品拾取';
+   $('takeAll').textContent=(part?'拾取勾选':'全部拾取')+(touch?'':' F');
    let first=true;
    $('lootList').innerHTML=c.items.length?c.items.map((it,i)=>{
     if(!it.rev){const s=first?'<div class="pb"><b id="revBar"></b></div>':'';const lab=first?'搜索中…':'未搜索';first=false;
      return `<div class="lr unk"><span class="sw">?</span><div><div class="n">${lab}</div>${s}</div><span class="m"></span></div>`;}
     if(it.sp){const n=it.sp==='ammo'?`${pl.w.n.split(' ')[0]} 弹药`:MEDS[it.sp].n;
-     return `<button class="lr" data-i="${i}" style="--rc:#4fc3b8"><span class="sw">补</span><div><div class="n">${n}</div><div class="m">补给 · 不占背包</div></div><span class="m">拾取</span></button>`;}
+     return `<button class="lr${mark(i)}" data-i="${i}" style="--rc:#4fc3b8"><span class="sw">补</span><div><div class="n">${n}</div><div class="m">补给 · 不占背包</div></div><span class="m">拾取</span></button>`;}
     const r=iR(it.id);
-    return `<button class="lr" data-i="${i}" style="--rc:${RC[r]}"><span class="sw">${iSize(it.id)}格</span><div><div class="n">${iName(it.id)}</div><div class="m">${RN[r]} · ${fmt(iVal(it.id))}</div></div><span class="m">${fmtK(iVal(it.id)/iSize(it.id))}/格</span></button>`;
+    return `<button class="lr${mark(i)}" data-i="${i}" style="--rc:${RC[r]}"><span class="sw">${iSize(it.id)}格</span><div><div class="n">${iName(it.id)}</div><div class="m">${RN[r]} · ${fmt(iVal(it.id))}</div></div><span class="m">${fmtK(iVal(it.id)/iSize(it.id))}/格</span></button>`;
    }).join(''):'<div class="empty" style="padding-inline:12px">已搜空</div>';
   }
   const bar=document.getElementById('revBar');
@@ -2976,10 +3028,12 @@ function createRaidUI({getRaid,back}){
   const pl=G.pl,bu=G.bagUsed(),su=G.safeUsed();
   $('bagLbl').textContent=`${BAGS[pl.bagId].n} · ${bu}/${pl.cap} 格 · ${fmt(pl.bag.reduce((s,id)=>s+iVal(id),0))}`;
   $('bagCap').style.width=(bu/pl.cap*100)+'%';
-  $('bagList').innerHTML=pl.bag.length?pl.bag.map((id,i)=>rowHTML(id,i,`${su+iSize(id)<=SAFE_CAP?`<button class="sm" data-a="safe" data-i="${i}">放入安全箱</button>`:''}<button class="sm" data-a="drop" data-i="${i}">丢弃</button>`)).join(''):'<div class="empty">背包是空的</div>';
+  // 陶瓷插板多一个「使用」键（修防弹衣）；用不了时写明原因并禁用，免得点了没反应（提示消息画在画布上，会被背包盖住）
+  const a=pl.armor,h=pl.helmet,why=!a.lvl?'无防弹衣':a.cur>=a.dur?'护甲已满':pl.heal?'正在治疗':pl.fix?'正在修甲':'';
+  const use=(id,i)=>id!=='plate'?'':`<button class="sm" data-a="use" data-i="${i}"${why?' disabled':''}>${why||`使用 · 护甲 +${PLATE.fix}`}</button>`;
+  $('bagList').innerHTML=pl.bag.length?pl.bag.map((id,i)=>rowHTML(id,i,`${use(id,i)}${su+iSize(id)<=SAFE_CAP?`<button class="sm" data-a="safe" data-i="${i}">放入安全箱</button>`:''}<button class="sm" data-a="drop" data-i="${i}">丢弃</button>`)).join(''):'<div class="empty">背包是空的</div>';
   $('safeLbl').textContent=`安全箱 · ${su}/${SAFE_CAP} 格 · 阵亡保留`;$('safeCap').style.width=(su/SAFE_CAP*100)+'%';
   $('safeList').innerHTML=pl.safe.length?pl.safe.map((id,i)=>rowHTML(id,i,`<button class="sm" data-a="unsafe" data-i="${i}">放回背包</button>`)).join(''):'<div class="empty">放入 1–2 格的高价值物品，阵亡也不会丢</div>';
-  const a=pl.armor,h=pl.helmet;
   $('gearKV').innerHTML=`<span>武器</span><span>${pl.w.n} · ${pl.mag}/${pl.ammo}</span><span>护甲</span><span>${a.lvl?`${a.n} · ${Math.ceil(a.cur)}/${a.dur}`:'无'}</span>
    <span>头盔</span><span>${h.lvl?`${h.n} · ${Math.ceil(h.cur)}/${h.dur}`:'无'}</span><span>医疗</span><span>绷带 ${pl.meds.band} · 急救包 ${pl.meds.kit}</span><span>生命</span><span>${Math.ceil(pl.hp)} / ${pl.maxhp}</span>`;
  }
@@ -3009,6 +3063,7 @@ function createRaidUI({getRaid,back}){
    const G=getRaid();if(!G)return;
    if(e.target===$('inv')){G.toggleInv(false);return;}
    const b=e.target.closest('button[data-a]');if(!b)return;const i=+b.dataset.i,a=b.dataset.a;
+   if(a==='use'&&G.usePlate(i)){G.toggleInv(false);return;}   // 开始修甲就关背包回到对局（手机上开着背包对局是停的）
    if(a==='safe')G.stow(i);else if(a==='unsafe')G.unstow(i);else if(a==='drop')G.drop(i);
    renderInv(G);
   });
