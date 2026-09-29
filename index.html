@@ -74,6 +74,7 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .med{display:flex;align-items:center;gap:10px;background:#0f181b;border:1px solid var(--line);padding:6px 10px;font-size:13px}
 .med .st{font:11px var(--mono);color:var(--muted)}
 .med button{width:28px;height:28px;background:#172226;border:1px solid var(--line2);color:var(--text);cursor:pointer;font:600 15px var(--mono)}
+.med button:disabled{opacity:.4;cursor:not-allowed}
 .med b{font:700 16px var(--mono);min-width:16px;text-align:center}
 .stash{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:6px;max-height:360px;overflow:auto;align-content:start;touch-action:pan-y}
 .it{position:relative;background:#0f181b;border:1px solid var(--line);padding:7px 8px 6px;cursor:pointer;color:var(--text);text-align:left;display:flex;flex-direction:column;gap:2px;overflow:hidden}
@@ -209,6 +210,7 @@ html.land #touch .tb-top{top:calc(14px + var(--sa-t));right:calc(14px + var(--sa
 #fireBtn.empty{border-color:var(--amber)!important}
 #actR{width:58px;height:58px;right:calc(146px + var(--sa-r));bottom:calc(30px + var(--sa-b))}
 #actH{width:58px;height:58px;right:calc(30px + var(--sa-r));bottom:calc(146px + var(--sa-b))}
+#actH.need{border-color:#62c46f;background:rgba(98,196,111,.28)}   /* 生命 ≤ 60 且有药（platform/mobile/input.js syncTouchUI） */
 #actF{width:64px;height:64px;right:calc(132px + var(--sa-r));bottom:calc(132px + var(--sa-b));opacity:.55}
 #actF.hot{opacity:1;background:rgba(240,164,58,.4);border-color:var(--amber);animation:pulse 1.2s infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 9px rgba(240,164,58,.16)}}
@@ -231,8 +233,8 @@ html.touch .lr .m{font-size:10px;white-space:nowrap;overflow:hidden;text-overflo
 html.touch .lr .sw{position:absolute;top:3px;right:3px;width:auto;height:auto;padding:1px 4px;font-size:9.5px}
 html.touch #lootList .empty{grid-column:1/-1;padding:8px}
 html.touch .sm{padding:8px 12px;font-size:13px}
-/* 横屏的面板压在角色南边，限高到一行半（露出半行提示还能往下翻），背包格数左上面板已有 */
-html.land.touch #loot{top:auto;bottom:calc(10px + var(--sa-b));left:calc(max(180px,26%) + var(--sa-l));right:calc(214px + var(--sa-r));transform:none;width:auto;max-width:440px;margin-inline:auto;max-height:min(116px,calc(50% - 46px - var(--sa-b)))}
+/* 横屏的面板压在角色南边、底部生命条（高 40，platform/mobile/hud.js vitRect）上面，限高到一行半（露出半行提示还能往下翻），背包格数左上面板已有 */
+html.land.touch #loot{top:auto;bottom:calc(56px + var(--sa-b));left:calc(max(180px,26%) + var(--sa-l));right:calc(214px + var(--sa-r));transform:none;width:auto;max-width:440px;margin-inline:auto;max-height:min(116px,calc(50% - 92px - var(--sa-b)))}
 html.land.touch #loot header small{display:none}
 
 /* ---------- phone lobby ---------- */
@@ -1463,7 +1465,7 @@ function createRaid({mode,loadout,rng,diff=1}){
   const Wp=e.w,ca=Math.cos(e.a),sa=Math.sin(e.a);
   let sx=e.x+ca*(e.r+Wp.len),sy=e.y+sa*(e.r+Wp.len);
   if(castSeg(e.x,e.y,sx,sy,'bb')<1){sx=e.x;sy=e.y;}
-  const mul=isP?(e.sprinting?2.5:e.moving?1.5:1):1;
+  const mul=isP&&e.moving?1.5:1;   // 玩家奔跑时开不了火（updatePlayer），走动时散布 ×1.5；键鼠准星按同一倍数张开（platform/desktop/hud.js）
   for(let i=0;i<Wp.pel;i++){
    const a=e.a+(isP?gauss()*Wp.sp*mul:err+gauss()*Wp.sp*.7);
    G.bullets.push({x:sx,y:sy,px:sx,py:sy,vx:Math.cos(a)*Wp.spd,vy:Math.sin(a)*Wp.spd,dmg:Wp.dmg,pen:Wp.pen,life:Wp.rng/Wp.spd,own:isP?'p':'e',src:e});
@@ -1554,7 +1556,8 @@ function createRaid({mode,loadout,rng,diff=1}){
   for(let i=B.length-1;i>=0;i--){
    const b=B[i];b.px=b.x;b.py=b.y;b.life-=dt;
    const dx=b.vx*dt,dy=b.vy*dt;let tHit=castSeg(b.x,b.y,b.x+dx,b.y+dy,'bb'),target=null;
-   const list=b.own==='p'?G.enemies:[pl];
+   // 结束后还在飞的子弹只打墙：撤离成功后不会再被打死，结果定了也不再击倒敌人
+   const list=G.over?[]:b.own==='p'?G.enemies:[pl];
    for(const e of list){if(e.dead)continue;const t=segCirc(b.x,b.y,dx,dy,e);if(t<tHit){tHit=t;target=e;}}
    if(tHit<=1){
     const hx=b.x+dx*tHit,hy=b.y+dy*tHit;
@@ -1577,7 +1580,7 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(e===pl){
    if(pl.dead)return;
    emit('hurt',{a:Math.atan2(b.src.y-pl.y,b.src.x-pl.x)});
-   if(pl.hp<=0){pl.hp=0;pl.dead=true;pl.heal=null;emit('die');end(false,`被${b.src.d.n}${b.src.kind==='boss'?'「铁锚」':''}击杀`);}
+   if(pl.hp<=0){pl.hp=0;pl.dead=true;pl.heal=null;emit('die');end(false,`被${b.src.d.n}击杀`);}
   }else{
    emit('hit',{head});alertEnemy(e,pl.x,pl.y);
    if(e.hp<=0)killEnemy(e);
@@ -1585,7 +1588,7 @@ function createRaid({mode,loadout,rng,diff=1}){
  }
  function killEnemy(e){
   e.dead=true;G.kills++;G.killed[e.kind]=(G.killed[e.kind]||0)+1;emit('kill');
-  msg(`击倒 ${e.d.n}${e.kind==='boss'?'「铁锚」':''} · ${WEAPONS[e.wid].n}`,e.kind==='boss'?'#f2c14e':'#e5484d');
+  msg(`击倒 ${e.d.n} · ${WEAPONS[e.wid].n}`,e.kind==='boss'?'#f2c14e':'#e5484d');
   const rw=e.kind==='scav'?[45,35,15,4,1,.1]:e.kind==='boss'?[0,8,26,32,26,8]:[20,35,28,12,4,.6];
   const n=e.kind==='scav'?ri(1,3):e.kind==='boss'?ri(3,5):ri(2,4),items=[];
   for(let i=0;i<n;i++)items.push({id:rollItem(rw,null,rng)});
@@ -1595,7 +1598,7 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(e.armor.lvl>=3&&random()<.5)items.push({id:'plate'});
   if(random()<.35)items.push({id:'wpnparts'});
   items.push({sp:'ammo'});if(random()<.45)items.push({sp:e.kind==='scav'?'band':'kit'});
-  conts.push({type:'body',x:e.x,y:e.y,a:e.a,col:e.d.col,items:items.map(o=>({...o,rev:false})),opened:false,revT:0,name:`${e.d.n}${e.kind==='boss'?'「铁锚」':''}的遗体`});
+  conts.push({type:'body',x:e.x,y:e.y,a:e.a,col:e.d.col,items:items.map(o=>({...o,rev:false})),opened:false,revT:0,name:`${e.d.n}的遗体`});
  }
 
  /* ================= looting, inventory & extraction ================= */
@@ -1636,7 +1639,6 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(G.near&&G.near!==c)openLoot(G.near);else if(c)closeLoot();
  }
  function toggleInv(v){
-  if(G.over&&v!==false)return;
   G.invOpen=v===undefined?!G.invOpen:v;
   if(G.invOpen&&G.lootC)closeLoot();
  }
@@ -1673,16 +1675,19 @@ function createRaid({mode,loadout,rng,diff=1}){
  }
  function command(c){
   if(G.over)return;
-  if(c==='inv'){toggleInv();return 'inv';}
   if(c==='back')return back();
   if(c==='pause'){G.paused=!G.paused;return G.paused?'pause':'resume';}   // 手机的「暂停」键：开着面板也直接暂停，面板留在暂停层下面
   if(G.paused)return;
+  if(c==='inv'){toggleInv();return 'inv';}
   if(c==='interact')interact();else if(c==='reload')startReload(pl);else if(c==='heal')startHeal();else if(c==='map')G.bigMap=!G.bigMap;
   return c;
  }
 
- return Object.assign(G,{update,command,toggleInv,closeLoot,takeAll,stow,unstow,drop,bagUsed,safeUsed,bagValue,
-  take:i=>G.lootC?takeItem(G.lootC,i):false,
+ // 界面直接调的拾取、背包操作跟命令一样，暂停或结束后不理（面板被暂停层盖住，但键盘和排着队的点击还会进来）；closeLoot 只是关面板，不拦
+ const live=f=>(...a)=>G.paused||G.over?false:f(...a);
+ return Object.assign(G,{update,command,closeLoot,bagUsed,safeUsed,bagValue,
+  toggleInv:live(toggleInv),takeAll:live(takeAll),stow:live(stow),unstow:live(unstow),drop:live(drop),
+  take:live(i=>G.lootC?takeItem(G.lootC,i):false),
   resume(){G.paused=false;},
   abandon(){if(G.over)return;G.paused=false;pl.dead=true;end(false,'主动放弃行动');}});
 }
@@ -1696,8 +1701,9 @@ __m[5]=(function(){
 const {ITEMS,MEDS,MODES,WEAPONS,ARMORS,HELMETS,BAGS,gearPrice,iVal}=__m[2];
 
 const SAVE_KEY='reef-ops-save-v1';
+const MED_CAP=8;   // 每种医疗品最多存 8 个：大厅买、撤离带回都截在这里
 function newSave(){return{money:150000,stash:['watch','gpu','coffee','screw','radio','manifest'],
- owned:{smg:1,a2:1,h2:1,b1:1},equip:{w:'smg',a:'a2',h:'h2',b:'b1'},meds:{band:3,kit:1},
+ owned:{smg:1,a2:1,h2:1,b1:1},equip:{w:'smg',a:'a2',h:'h2',b:'b1'},meds:{band:3,kit:1},medBuy:{band:0,kit:0},
  stats:{raids:0,ext:0,kills:0,best:0},mode:'n'};}
 const SLOTS={w:WEAPONS,a:ARMORS,h:HELMETS,b:BAGS};
 function kitValue(S){const e=S.equip;return gearPrice(e.w)+gearPrice(e.a)+gearPrice(e.h)+gearPrice(e.b)+S.meds.band*MEDS.band.price+S.meds.kit*MEDS.kit.price;}
@@ -1726,28 +1732,30 @@ function createProfile(store){
    if(!owns(id)){const p=gearPrice(id);if(S.money<p)return false;S.money-=p;S.owned[id]=(S.owned[id]||0)+1;}
    S.equip[k]=id;persist();return true;
   },
-  // 医疗补给：每种最多带 8 个，退回按原价
+  // 医疗补给：每种最多 MED_CAP 个。只能按原价退回上一局之后在大厅买的（medBuy），局内捡到带回来的不能退，免得捡药换钱
   med(k,d){
    const p=MEDS[k].price;
-   if(d>0&&S.meds[k]<8&&S.money>=p){S.money-=p;S.meds[k]++;}else if(d<0&&S.meds[k]>0){S.money+=p;S.meds[k]--;}
+   if(d>0&&S.meds[k]<MED_CAP&&S.money>=p){S.money-=p;S.meds[k]++;S.medBuy[k]++;}
+   else if(d<0&&S.medBuy[k]>0&&S.meds[k]>0){S.money+=p;S.meds[k]--;S.medBuy[k]--;}
    persist();
   },
+  canRefund:k=>S.medBuy[k]>0&&S.meds[k]>0,
   sell(i){const id=S.stash[i];if(!id)return false;S.money+=iVal(id);S.stash.splice(i,1);persist();return true;},
   sellWhere(fn){let got=0;S.stash=S.stash.filter(id=>{if(ITEMS[id]&&fn(id)){got+=iVal(id);return false;}return true;});S.money+=got;persist();},
   reset(){S=newSave();persist();},
   // 带进对局的东西（core/raid.js createRaid 的 loadout）
   loadout(){const e=S.equip;return{w:e.w,a:e.a,h:e.h,b:e.b,meds:{band:S.meds.band,kit:S.meds.kit},value:kitValue(S)};},
-  // 对局结算：撤离成功带回背包物资和剩余医疗品；失败丢掉全部配装，只保住安全箱
+  // 对局结算：撤离成功带回背包物资和剩余医疗品（每种截到 MED_CAP，多的丢掉）；失败丢掉全部配装，只保住安全箱。出过一局，之前买的药就不能再退
   settle(r){
-   S.stats.raids++;S.stats.kills+=r.kills;
-   if(r.ok){S.stats.ext++;S.meds.band=r.meds.band;S.meds.kit=r.meds.kit;}
+   S.stats.raids++;S.stats.kills+=r.kills;S.medBuy={band:0,kit:0};
+   if(r.ok){S.stats.ext++;for(const k in MEDS)S.meds[k]=Math.min(MED_CAP,r.meds[k]);}
    else{for(const k of ['w','a','h','b']){const id=S.equip[k];if(gearPrice(id)>0){S.owned[id]=Math.max(0,(S.owned[id]||0)-1);if(!S.owned[id])S.equip[k]=bestOwned(k);}}S.meds.band=0;S.meds.kit=0;}
    S.stash.push(...r.items);S.stats.best=Math.max(S.stats.best,r.value);persist();
   }
  };
 }
 
-return Object.freeze({SAVE_KEY,newSave,kitValue,createProfile});
+return Object.freeze({SAVE_KEY,MED_CAP,newSave,kitValue,createProfile});
 })();
 /* ---- core/meta.js ---- */
 __m[6]=(function(){
@@ -1806,11 +1814,11 @@ function newMeta(){return{did:'',name:'',created:0,day:'',freeUsed:0,bonus:0,pas
 /* 注入：store {load, save} 本机存储 · now() 当前时间戳 · randomBytes(n) 随机字节 · verify(sig, msg, pubkey) 验签（异步）
         pubkey 口令公钥（base64url；没有则口令功能关闭）· revoked 作废口令的签名前 16 位 · baseURL() 本站网址（生成链接用） */
 function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
- let M=newMeta(),passOk=false;
+ let M=newMeta(),passOk=false,firstRec=null;   // firstRec：让 firstOk 变真的那条战绩（只在内存里，结算页用）
  const today=()=>dayKey(now());
  const save=()=>store.save(M);
  const rnd36=n=>Array.from(randomBytes(n),b=>(b%36).toString(36)).join('');
- const addBonus=n=>{M.bonus=Math.min(RULES.bonusCap,M.bonus+n);};
+ const addBonus=n=>{const b=M.bonus;M.bonus=Math.min(RULES.bonusCap,b+n);return M.bonus-b;};   // 返回实际加了几次（到上限就截断）
 
  /* ---- storage ---- */
  function load(){
@@ -1844,11 +1852,13 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
  function setName(v){M.name=v;save();}
 
  /* ---- 积分 ---- */
+ // 战绩最多留 80 局，但本周的局一局不删（周积分要算全本周），超出时只删上周及更早的
  function record(r){
   const t=now(),killPts=killPoints(r.killed);
   const rec={t,wk:weekKey(t),mode:r.mode,ok:r.ok,value:r.value,kills:r.kills,killPts,score:raidScore({ok:r.ok,value:r.value,mode:r.mode,killPts})};
-  M.raids.unshift(rec);if(M.raids.length>80)M.raids.length=80;
-  if(r.ok&&!M.firstOk){M.firstOk=true;if(M.invitedBy&&!M.receiptKey)M.receiptKey=rnd36(10);}
+  M.raids.unshift(rec);if(M.raids.length>80)M.raids=M.raids.filter((x,i)=>i<80||x.wk===rec.wk);
+  firstRec=r.ok&&!M.firstOk?rec:null;
+  if(firstRec){M.firstOk=true;if(M.invitedBy&&!M.receiptKey)M.receiptKey=rnd36(10);}
   save();return rec;
  }
  function weekStats(){
@@ -1861,18 +1871,22 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
  const receiptLink=()=>`${baseURL()}#r=${packJSON({to:M.invitedBy.d,tn:M.invitedBy.n,from:M.name,fd:M.did,k:M.receiptKey})}`;
  // 能给邀请人发回执了：是被邀请来的，且已完成首次撤离
  const receiptReady=()=>!!(M.invitedBy&&M.firstOk&&M.receiptKey);
- // 这一局就是首次撤离成功（结算页提示发回执）
- const firstExtraction=r=>!!(r.ok&&M.invitedBy&&M.receiptKey&&M.raids.filter(x=>x.ok).length===1);
+ // rec（record 的返回值）就是首次撤离成功的那一局，而且能发回执（结算页提示发回执）
+ const firstExtraction=rec=>!!rec&&rec===firstRec&&receiptReady();
  // 收到口令 / 邀请 / 回执（点开的链接、扫的码或粘贴的文本）。返回给界面 {text, kind} 提示一句
  async function incoming(text){
   text=String(text||'').trim();if(!text)return null;
   const say=(t,kind)=>({text:t,kind:kind||''});
+  // 奖励次数已满：邀请、回执都不消耗，用掉一些后还能再领；没满但加不满时照实说加了几次
+  const full=M.bonus>=RULES.bonusCap?say(`奖励次数已到上限 ${RULES.bonusCap}，用掉一些再来领`,'bad'):null;
+  const capped=(n,want)=>n<want?`（奖励次数上限 ${RULES.bonusCap}）`:'';
   let m;
   if((m=/#p=([^\s&]+)/.exec(text))||/RF2\./.test(text)){
-   const p=parsePass(m?decodeURIComponent(m[1]):text);
+   let s=m?m[1]:text;if(m)try{s=decodeURIComponent(s);}catch(_){}   // 转义坏了就按原文找（口令本身只含网址安全字符）
+   const p=parsePass(s);
    const r=await checkPass(p);
    if(!r.ok)return say(r.why,'bad');
-   M.pass=p.text;save();passOk=true;return say(`口令生效${p.label?`（${p.label}）`:''}：${p.until?`${p.until} 前`:''}无限次行动`,'ok');
+   M.pass=p.text;save();passOk=true;return say(`口令生效${p.label?`（${p.label}）`:''}：无限次行动${p.until?`至 ${p.until}（含当天）`:''}`,'ok');
   }
   if((m=/#i=([A-Za-z0-9_-]+)/.exec(text))){
    const o=unpackJSON(m[1]);if(!o||!nameOK(o.n)||!didOK(o.d))return say('邀请链接不完整','bad');
@@ -1880,17 +1894,19 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
    if(M.invitedBy)return say(`你已经领过「${M.invitedBy.n}」的邀请礼包了`);
    // 新玩家 = 还没撤离成功过：之后首次撤离时 record 才会生成回执（见 receiptKey）
    if(M.firstOk)return say('邀请礼包只给还没撤离成功过的新玩家');
-   M.invitedBy={n:o.n,d:o.d};addBonus(RULES.inviteeBonus);save();
-   return say(`你被「${o.n}」邀请，已到账 ${RULES.inviteeBonus} 次行动`,'ok');
+   if(full)return full;
+   M.invitedBy={n:o.n,d:o.d};const n=addBonus(RULES.inviteeBonus);save();
+   return say(`你被「${o.n}」邀请，已到账 ${n} 次行动${capped(n,RULES.inviteeBonus)}`,'ok');
   }
   if((m=/#r=([A-Za-z0-9_-]+)/.exec(text))){
-   const o=unpackJSON(m[1]);if(!o||!didOK(o.to)||!didOK(o.fd)||!o.k)return say('回执链接不完整','bad');
+   const o=unpackJSON(m[1]);if(!o||!didOK(o.to)||!didOK(o.fd)||!nameOK(o.tn)||!nameOK(o.from)||typeof o.k!=='string'||!o.k)return say('回执链接不完整','bad');
    if(o.to!==M.did)return say(`这张回执是给「${o.tn}」${didTag(o.to)} 的，不是这台设备`,'bad');
-   if(M.receiptsUsed.includes(o.fd)||M.receiptsUsed.includes(o.k))return say('这位好友的回执已经领过了');
+   if(M.receiptsUsed.includes(o.fd))return say('这位好友的回执已经领过了');
+   if(full)return full;
    rollDay();if(M.receiptToday>=RULES.receiptPerDay)return say(`今天已领满 ${RULES.receiptPerDay} 张回执，明天再来`,'bad');
-   M.receiptsUsed.push(o.fd);if(M.receiptsUsed.length>300)M.receiptsUsed.shift();   // 每位受邀设备只算一次
-   M.receiptToday++;M.invitesOk++;addBonus(RULES.inviterBonus);save();
-   return say(`「${o.from}」完成了首次撤离，你获得 ${RULES.inviterBonus} 次行动`,'ok');
+   M.receiptsUsed.push(o.fd);   // 每位受邀设备只算一次；名单不截断（每天最多 4 条）
+   M.receiptToday++;M.invitesOk++;const n=addBonus(RULES.inviterBonus);save();
+   return say(`「${o.from}」完成了首次撤离，你获得 ${n} 次行动${capped(n,RULES.inviterBonus)}`,'ok');
   }
   return say('没认出这段内容，支持口令、邀请链接、回执链接','bad');
  }
@@ -2057,7 +2073,8 @@ function readSafe(){const p=document.getElementById('safeProbe');if(!p)return;co
  SAFE.t=parseFloat(cs.paddingTop)||0;SAFE.r=parseFloat(cs.paddingRight)||0;SAFE.b=parseFloat(cs.paddingBottom)||0;SAFE.l=parseFloat(cs.paddingLeft)||0;}
 // 按当前平台的画面参数（像素预算、缩放）重设画布尺寸
 function resize(PF){
- V.W=V.rot?window.innerHeight:window.innerWidth;V.H=V.rot?window.innerWidth:window.innerHeight;readSafe();   // 整页转了 90° 时宽高对调V.dpr=Math.min(window.devicePixelRatio||1,2);
+ V.W=V.rot?window.innerHeight:window.innerWidth;V.H=V.rot?window.innerWidth:window.innerHeight;readSafe();   // 整页转了 90° 时宽高对调
+ V.dpr=Math.min(window.devicePixelRatio||1,2);
  const pb=PF.view.pixelBudget;if(V.W*V.H*V.dpr*V.dpr>pb)V.dpr=Math.max(1,Math.sqrt(pb/(V.W*V.H)));
  cv.width=Math.round(V.W*V.dpr);cv.height=Math.round(V.H*V.dpr);fc.width=cv.width;fc.height=cv.height;
  V.Z=PF.view.zoom();
@@ -2117,11 +2134,98 @@ function setScheme(v,force){if(SCHEME.touch===v&&!force)return;SCHEME.touch=v;if
 
 return Object.freeze({K,IN,TOUCH,SCHEME,isT,stick,setScheme});
 })();
-/* ---- platform/desktop/hud.js ---- */
+/* ---- view/hud.js ---- */
 __m[15]=(function(){
+/* ================= HUD：共享部分 =================
+ 平台差异（角落面板、底部面板、瞄准 / 摇杆显示、提示位置、避让区域）由当前平台对象的 hud 提供，生命条 hpBar 两边共用（platform/desktop、platform/mobile）；
+ 平台对象按最近一次输入选用，所以带键盘的平板或触屏笔记本也能随时切换。 */
+const {TAU,clamp}=__m[1];
+const {MEDS}=__m[2];
+const {MW,MH}=__m[3];
+const {ctx,V,SAFE,LAYERS,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
+
+/* 生命条（两个平台的 HUD 共用）：
+ 颜色三档按显示的整数：> 60 白，≤ 60 琥珀（缺血 ≥ 40，core/raid.js startHeal 这时会用急救包），< 35 红（和红色暗角同一线）；
+ 受击后掉的那截先留着再滑走（lag，view/effects.js 的 S.lag），治疗中用绿色预告治完回到哪；seg 画每 10 点一道刻度，数格子就知道还扛几枪 */
+const hpCol=hp=>hp<35?'#e5484d':hp<=60?'#f0a43a':'#d9e1de';
+function hpBar(x,y,w,h,p,lag,seg){
+ const f=v=>w*clamp(v/p.maxhp,0,1),hp=f(p.hp);
+ ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(x,y,w,h);
+ if(p.heal){ctx.fillStyle=`rgba(98,196,111,${.3+.45*(1-p.heal.t/p.heal.T)})`;ctx.fillRect(x+hp,y,f(p.hp+MEDS[p.heal.k].heal)-hp,h);}
+ if(lag>p.hp){ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(x+hp,y,f(lag)-hp,h);}
+ ctx.fillStyle=hpCol(Math.ceil(p.hp));ctx.fillRect(x,y,hp,h);
+ if(seg){ctx.fillStyle='rgba(8,13,15,.8)';for(let i=10;i<p.maxhp;i+=10)ctx.fillRect(x+f(i),y,1,h);}
+}
+
+function drawHUD(G,fx,PF){
+ ctx.setTransform(V.dpr,0,0,V.dpr,0,0);
+ const {W,H,Z}=V,P=PF.hud,m=14,narrow=W<560,pl=G.pl,ps=toScreen(pl.x,pl.y);
+ if(!pl.dead&&pl.hp<35){const a=(1-pl.hp/35)*.55*(.7+.3*Math.sin(G.t*5));const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.75);
+  g.addColorStop(0,'rgba(120,0,0,0)');g.addColorStop(1,`rgba(160,12,12,${a})`);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+ for(const h of fx.hurt){ctx.strokeStyle=`rgba(229,72,77,${Math.min(1,h.t)})`;ctx.lineWidth=5;ctx.beginPath();ctx.arc(ps.x,ps.y,70,h.a-.35,h.a+.35);ctx.stroke();}
+ let my=P.corner(G,m,narrow,fx);
+ // 提示消息：超过平台给的宽度就折行（手机竖屏右边是顶部按键）
+ const mf=`600 ${narrow?12:13}px ${F_BODY}`,mfw=P.msgW(m);
+ for(const s of fx.msgs){ctx.globalAlpha=Math.min(1,s.life);for(const ln of wrap(s.t,mfw,mf)){txt(ln,P.msgX(m),my,mf,s.c);my+=narrow?18:20;}}ctx.globalAlpha=1;
+ // minimap
+ const mw=P.miniW(narrow),mh=Math.round(mw*MH/MW),mx=W-m-P.safeR()-mw,myy=m+P.safeT(),sc=mw/MW;
+ panel(mx-4,myy-4,mw+8,mh+8);ctx.globalAlpha=.9;ctx.drawImage(LAYERS.mini,mx,myy,mw,mh);ctx.globalAlpha=1;
+ for(const x of G.ext){ctx.strokeStyle='#4fc3b8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(mx+x.x*sc,myy+x.y*sc,5,0,TAU);ctx.stroke();}
+ ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.strokeRect(mx+V.left*sc,myy+V.top*sc,W/Z*sc,H/Z*sc);
+ ctx.save();ctx.translate(mx+pl.x*sc,myy+pl.y*sc);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,4);ctx.lineTo(-4,-4);ctx.fill();ctx.restore();
+ P.top(G,m,narrow);
+ // zone banner
+ if(fx.zoneT>0){const by=P.bannerY();ctx.globalAlpha=Math.min(1,fx.zoneT);txt(G.zone,W/2,by,`800 ${narrow||H<440?30:40}px ${F_DISP}`,'#d9e1de','center');
+  txt('进入区域',W/2,by+24,`600 12px ${F_BODY}`,'#82939a','center');ctx.globalAlpha=1;}
+ P.bottom(G,m,fx);
+ // center prompts
+ const cy=P.promptY(m);
+ if(G.extZone){const p=G.extT/6;const w=Math.min(320,W-40);panel(W/2-w/2,cy-34,w,44);txt(`正在撤离 · ${G.extZone.n}`,W/2-w/2+12,cy-12,`700 14px ${F_BODY}`,'#4fc3b8');
+  txt((6-G.extT).toFixed(1)+'s',W/2+w/2-12,cy-12,`700 14px ${F_MONO}`,'#4fc3b8','right');bar(W/2-w/2+12,cy-2,w-24,4,p,'#4fc3b8');}
+ else if(pl.heal)txt(`正在使用 ${MEDS[pl.heal.k].n} · ${pl.heal.t.toFixed(1)}s`,W/2,cy,`700 14px ${F_BODY}`,'#62c46f','center');
+ else if(G.near&&!G.lootC&&!pl.dead){const c=G.near,s=(c.opened&&!c.items.length?'已搜空 · ':P.interactHint+(c.opened?'继续搜索 · ':'搜索 · '))+c.name;
+  ctx.font=`700 14px ${F_BODY}`;const tw=ctx.measureText(s).width+26;panel(W/2-tw/2,cy-22,tw,32);txt(s,W/2,cy-1,`700 14px ${F_BODY}`,c.opened&&!c.items.length?'#82939a':'#f0a43a','center');}
+ // extract edge markers
+ for(const x of G.ext){const s=toScreen(x.x,x.y);const pad=34;if(s.x>pad&&s.x<W-pad&&s.y>pad+80&&s.y<H-pad)continue;
+  const a=Math.atan2(s.y-H/2,s.x-W/2),sn=Math.sin(a),r=Math.min((W/2-pad-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-P.markerPad(sn))/Math.abs(sn||1e-6));
+  let ex=W/2+Math.cos(a)*r,ey=H/2+Math.sin(a)*r;ey=P.avoid(ex,ey);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#4fc3b8';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,8);ctx.lineTo(-6,-8);ctx.fill();ctx.restore();
+  txt(Math.round(Math.hypot(x.x-pl.x,x.y-pl.y)/10)+'m',ex-Math.cos(a)*22,ey-Math.sin(a)*22+4,`600 11px ${F_MONO}`,'#4fc3b8','center');}
+ // visible enemies that are off-screen
+ for(const e of G.enemies){if(e.dead||!e.vis)continue;const s=toScreen(e.x,e.y);if(s.x>0&&s.x<W&&s.y>0&&s.y<H)continue;
+  const a=Math.atan2(s.y-H/2,s.x-W/2),r=Math.min((W/2-18-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-18)/Math.abs(Math.sin(a)||1e-6));
+  const ex=W/2+Math.cos(a)*r,ey=P.avoid(ex,H/2+Math.sin(a)*r);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#e5484d';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,7);ctx.lineTo(-6,-7);ctx.fill();ctx.restore();}
+ P.aim(G,ps);
+ if(fx.hitMark>0){const hp=P.hitPos(G,ps),hx=hp.x,hy=hp.y,s=fx.hitMark*40;
+  ctx.strokeStyle=fx.hitHead?'#e5484d':'#fff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(hx-s,hy-s);ctx.lineTo(hx-s/2,hy-s/2);ctx.moveTo(hx+s,hy-s);ctx.lineTo(hx+s/2,hy-s/2);ctx.moveTo(hx-s,hy+s);ctx.lineTo(hx-s/2,hy+s/2);ctx.moveTo(hx+s,hy+s);ctx.lineTo(hx+s/2,hy+s/2);ctx.stroke();}
+ if(pl.dead){txt('阵亡',W/2,H/2,`800 64px ${F_DISP}`,'#e5484d','center','middle');}
+ if(G.bigMap)drawBigMap(G,PF);
+}
+// 按宽度折行（逐字，中文为主）
+function wrap(s,max,font){
+ ctx.font=font;if(ctx.measureText(s).width<=max)return[s];
+ const out=[];let ln='';for(const ch of s){if(ln&&ctx.measureText(ln+ch).width>max){out.push(ln);ln='';}ln+=ch;}if(ln)out.push(ln);return out;
+}
+function drawBigMap(G,PF){
+ const {W,H}=V,world=G.world,pl=G.pl;
+ ctx.fillStyle='rgba(4,8,10,.88)';ctx.fillRect(0,0,W,H);
+ const s=Math.min((W-32)/MW,(H-90)/MH),w=MW*s,h=MH*s,x=(W-w)/2,y=(H-h)/2+16;
+ ctx.drawImage(LAYERS.ground,x,y,w,h);ctx.drawImage(LAYERS.obs,x,y,w,h);ctx.strokeStyle='#33454d';ctx.strokeRect(x,y,w,h);
+ txt('港区全图',x,y-14,`700 20px ${F_DISP}`,'#d9e1de');txt(PF.touch?'点「地图」关闭':'M 关闭',x+w,y-14,`600 12px ${F_MONO}`,'#82939a','right');
+ for(const z of world.zones){if(z.n==='港区公路'||z.n==='栈桥')continue;txt(z.n,x+(z.x+z.w/2)*s,y+(z.y+z.h/2)*s,`700 ${Math.max(11,14*s*3)}px ${F_BODY}`,'rgba(217,225,222,.75)','center','middle');}
+ for(const c of world.conts)if(c.opened){ctx.fillStyle=c.items.length?'#8fa3a8':'#3a484d';ctx.fillRect(x+c.x*s-2,y+c.y*s-2,4,4);}
+ for(const e of world.extracts){const on=G.ext.includes(e);ctx.strokeStyle=on?'#4fc3b8':'#4a5a60';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x+e.x*s,y+e.y*s,70*s+3,0,TAU);ctx.stroke();
+  txt(e.n+(on?'':' · 未开放'),x+e.x*s,y+e.y*s-70*s-8,`600 12px ${F_BODY}`,on?'#4fc3b8':'#6b7b80','center');}
+ ctx.save();ctx.translate(x+pl.x*s,y+pl.y*s);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6);ctx.lineTo(-6,-6);ctx.fill();ctx.restore();
+}
+
+return Object.freeze({hpCol,hpBar,drawHUD});
+})();
+/* ---- platform/desktop/hud.js ---- */
+__m[16]=(function(){
 /* ================= 电脑版 HUD：左上计时、顶部背包、左下生命、右下武器、鼠标准星 ================= */
 const {TAU,clamp,fmt,mmss}=__m[1];
 const {ctx,V,F_DISP,F_BODY,F_MONO,MINI_W,panel,txt,bar,toWorld}=__m[12];
+const {hpBar,hpCol}=__m[15];
 const {IN}=__m[14];
 
 const HUD_DESKTOP={
@@ -2136,9 +2240,9 @@ const HUD_DESKTOP={
  top(G,m,narrow){
   if(!narrow){const bv=G.bagValue(),s=`背包 ${G.bagUsed()}/${G.pl.cap} 格 · ${fmt(bv)}`;ctx.font=`600 13px ${F_BODY}`;const tw=ctx.measureText(s).width+28;
    panel(V.W/2-tw/2,m,tw,30);txt(s,V.W/2,m+20,`600 13px ${F_BODY}`,bv>=100000?'#f2c14e':'#d9e1de','center');}},
- bottom(G,m){
+ bottom(G,m,fx){
   const {W,H}=V,pl=G.pl;
-  drawVitals(pl,m,H-m-104,250);
+  drawVitals(pl,m,H-m-104,250,fx.lag);
   const w=200,x=W-m-w,y=H-m-78;panel(x,y,w,78);
   txt(pl.w.n,x+12,y+20,`600 12.5px ${F_BODY}`,'#82939a');
   txt(String(pl.mag),x+12,y+62,`700 40px ${F_DISP}`,pl.mag===0?'#e5484d':'#d9e1de');
@@ -2151,19 +2255,18 @@ const HUD_DESKTOP={
  markerPad:sn=>sn<0?118:130,avoid:(x,y)=>y,
  aim(G){
   const pl=G.pl;
-  if(!pl.dead&&!G.bigMap){const cx=IN.mx,cyy=IN.my,gap=6+pl.w.sp*120*(pl.sprinting?2.5:pl.moving?1.5:1);
+  if(!pl.dead&&!G.bigMap){const cx=IN.mx,cyy=IN.my,gap=6+pl.w.sp*120*(pl.moving?1.5:1);   // 张开幅度按 core/raid.js shoot 的散布倍数
    ctx.strokeStyle='rgba(240,240,230,.9)';ctx.lineWidth=2;ctx.beginPath();
    ctx.moveTo(cx-gap-8,cyy);ctx.lineTo(cx-gap,cyy);ctx.moveTo(cx+gap,cyy);ctx.lineTo(cx+gap+8,cyy);ctx.moveTo(cx,cyy-gap-8);ctx.lineTo(cx,cyy-gap);ctx.moveTo(cx,cyy+gap);ctx.lineTo(cx,cyy+gap+8);ctx.stroke();
    if(pl.reload>0){ctx.strokeStyle='#f0a43a';ctx.beginPath();ctx.arc(cx,cyy,gap+14,-Math.PI/2,-Math.PI/2+TAU*(1-pl.reload/pl.w.rel));ctx.stroke();}}
  },
  hitPos:()=>({x:IN.mx,y:IN.my})
 };
-function drawVitals(p,x,y,w){
+function drawVitals(p,x,y,w,lag){
  panel(x,y,w,104);
  const hp=Math.ceil(p.hp);
- txt('生命',x+12,y+20,`600 11px ${F_BODY}`,'#82939a');txt(String(hp),x+w-12,y+20,`700 15px ${F_MONO}`,hp<35?'#e5484d':'#d9e1de','right');
- bar(x+12,y+26,w-24,8,p.hp/p.maxhp,hp<35?'#e5484d':'#d9e1de');
- ctx.fillStyle='rgba(8,13,15,.8)';for(let i=1;i<10;i++)ctx.fillRect(x+12+(w-24)*i/10,y+26,1,8);
+ txt('生命',x+12,y+20,`600 11px ${F_BODY}`,'#82939a');txt(String(hp),x+w-12,y+20,`700 15px ${F_MONO}`,hpCol(hp),'right');
+ hpBar(x+12,y+26,w-24,8,p,p.dead?0:lag,true);
  const ar=p.armor,he=p.helmet,hw=(w-36)/2;
  txt(ar.lvl?`护甲 ${ar.lvl}级`:'无护甲',x+12,y+52,`600 11px ${F_BODY}`,'#82939a');if(ar.lvl)txt(Math.ceil(ar.cur)+'',x+12+hw,y+52,`600 11px ${F_MONO}`,'#4f95e6','right');
  bar(x+12,y+57,hw,4,ar.lvl?ar.cur/ar.dur:0,'#4f95e6');
@@ -2185,7 +2288,7 @@ const VIEW_DESKTOP={
 return Object.freeze({HUD_DESKTOP,VIEW_DESKTOP});
 })();
 /* ---- platform/desktop/input.js ---- */
-__m[16]=(function(){
+__m[17]=(function(){
 /* ================= 电脑版操作：WASD 移动 · 鼠标瞄准射击 · R/F/H/Tab/M/Esc ================= */
 const {K,IN,setScheme}=__m[14];
 const {toLogical}=__m[13];
@@ -2210,29 +2313,29 @@ function mouseDown(e){setScheme(false);const p=toLogical(e);IN.mx=p.x;IN.my=p.y;
 function mouseMove(e){const p=toLogical(e);IN.mx=p.x;IN.my=p.y;}
 function mouseUp(e){if(e.button===0)IN.down=false;}
 function releaseKeys(){K.clear();IN.down=false;}
-/* 操作意图：WASD 移动、Shift 奔跑、鼠标指哪打哪（半自动武器需逐发点击） */
+/* 操作意图：WASD 移动、Shift 奔跑、鼠标指哪打哪（半自动武器需逐发点击）；按住左键时不报奔跑（core 奔跑时不能开火），和触屏一样开火优先 */
 const CONTROL_DESKTOP={
  read(){let mx=0,my=0;
   if(K.has('w')||K.has('arrowup'))my-=1;if(K.has('s')||K.has('arrowdown'))my+=1;if(K.has('a')||K.has('arrowleft'))mx-=1;if(K.has('d')||K.has('arrowright'))mx+=1;
-  return{mx,my,sprint:K.has('shift'),fire:IN.down,autoSemi:false};},
+  return{mx,my,sprint:K.has('shift')&&!IN.down,fire:IN.down,autoSemi:false};},
  aim(G){const p=G.pl,w=toWorld(IN.mx,IN.my);return Math.atan2(w.y-p.y,w.x-p.x);}
 };
 
 return Object.freeze({initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys,CONTROL_DESKTOP});
 })();
 /* ---- platform/desktop/index.js ---- */
-__m[17]=(function(){
+__m[18]=(function(){
 /* ================= 电脑版平台对象：键鼠操作 + 电脑版 HUD 与画面参数 =================
  平台对象的接口见 docs/architecture/platform.md：touch · control · hud · view · raidStart(say) · hurt()。 */
-const {HUD_DESKTOP,VIEW_DESKTOP}=__m[15];
-const {CONTROL_DESKTOP}=__m[16];
+const {HUD_DESKTOP,VIEW_DESKTOP}=__m[16];
+const {CONTROL_DESKTOP}=__m[17];
 
 const PF_DESKTOP={touch:false,hud:HUD_DESKTOP,view:VIEW_DESKTOP,control:CONTROL_DESKTOP,raidStart(){},hurt(){}};
 
 return Object.freeze({PF_DESKTOP});
 })();
 /* ---- view/dom.js ---- */
-__m[18]=(function(){
+__m[19]=(function(){
 /* ================= DOM 小工具：取元素、转义、提示条、二次确认 ================= */
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2249,11 +2352,11 @@ function armConfirm(btn,label,action){
 return Object.freeze({$,esc,toast,armConfirm});
 })();
 /* ---- platform/mobile/input.js ---- */
-__m[19]=(function(){
+__m[20]=(function(){
 /* ================= 手机版操作：左半屏浮动摇杆 · 右下开火键（自动瞄准，拖动指定方向） · 换弹/治疗/搜索 ================= */
 const {clamp,angDiff}=__m[1];
 const {cv,V,cam}=__m[12];
-const {$}=__m[18];
+const {$}=__m[19];
 const {TOUCH,SCHEME,isT,stick,setScheme}=__m[14];
 const {toLogical}=__m[13];
 
@@ -2301,10 +2404,12 @@ function syncTouchUI(G){
  const big=p.reload>0?'换弹':p.heal?'治疗':String(p.mag),sub=p.reload>0||p.heal?'':'/'+p.ammo;
  // 面板里还有东西时「搜索」键是全部拾取；面板空了它会换到旁边另一个容器（core/raid.js interact）
  const lc=G.lootC,left=!!(lc&&lc.items.length),near=!!(G.near&&G.near!==lc&&(!G.near.opened||G.near.items.length)),fl=left?'全部<br>拾取':'搜索';
- const key=[big,sub,near,fl,p.meds.band,p.meds.kit,p.mag===0,left].join('|');if(key===tuiKey)return;tuiKey=key;
+ // 生命 ≤ 60（该用急救包的线，和 view/hud.js 的 hpCol 琥珀档一致）且有药时「治疗」键转绿：读数和按键放在一起；不闪，挨打时停下治疗多半是错的
+ const need=!p.dead&&!p.heal&&Math.ceil(p.hp)<=60&&p.meds.band+p.meds.kit>0;
+ const key=[big,sub,near,fl,p.meds.band,p.meds.kit,p.mag===0,left,need].join('|');if(key===tuiKey)return;tuiKey=key;
  fireBtn.innerHTML=`<b>${big}</b><small>${sub}</small>`;fireBtn.classList.toggle('empty',p.mag===0&&p.reload<=0);
  $('actF').innerHTML=fl;$('actF').classList.toggle('hot',near||left);
- $('actH').innerHTML=`治疗<small>绷${p.meds.band} 包${p.meds.kit}</small>`;
+ $('actH').innerHTML=`治疗<small>绷${p.meds.band} 包${p.meds.kit}</small>`;$('actH').classList.toggle('need',need);
 }
 
 /* 操作意图：摇杆移动、推到底奔跑（按住开火时不跑）、开火键自动瞄准；开着背包时对局暂停（invPause，见 core/raid.js update） */
@@ -2348,29 +2453,40 @@ function pickTarget(G,p,dirA){
 return Object.freeze({AIM,touchCanvasDown,touchMove,touchUp,releaseTouch,initMobileInput,showTouchControls,resetTouchUI,syncTouchUI,CONTROL_MOBILE});
 })();
 /* ---- platform/mobile/hud.js ---- */
-__m[20]=(function(){
-/* ================= 手机版 HUD：左上合并面板（计时+生命+护甲+背包）、摇杆提示、避开右下按键区 ================= */
+__m[21]=(function(){
+/* ================= 手机版 HUD：角色脚下的生命弧、左上面板（计时+背包，竖屏还有生命和护甲）、横屏底部生命条、摇杆提示、避开右下按键区 =================
+ 生命按「越常变、越要命，就离视线越近」摆：打起来眼睛在角色和开火键上，所以主读数是脚下的弧；
+ 横屏高度最紧，左上只留任务信息，生命和护甲的细节放到两只拇指之间的底边；竖屏底边被按键占满，细节留在左上面板 */
 const {TAU,clamp,fmtK,mmss}=__m[1];
+const {MEDS}=__m[2];
 const {ctx,V,SAFE,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
+const {hpBar,hpCol}=__m[15];
 const {TOUCH}=__m[14];
-const {AIM}=__m[19];
+const {AIM}=__m[20];
+
+const panelH=()=>V.H>V.W?116:72;   // 左上面板高：竖屏含生命和护甲，横屏只有任务信息
+const VIT_H=40;
+// 横屏底部生命条：左右边界和横屏搜索面板（mobile.css 的 html.land.touch #loot）一样，面板开着时停在它上面
+function vitRect(){const {W,H}=V,l=Math.max(180,W*.26)+SAFE.l,r=W-214-SAFE.r,w=Math.min(300,r-l);return{x:Math.round((l+r-w)/2),y:H-SAFE.b-10-VIT_H,w,h:VIT_H};}
 
 const HUD_MOBILE={
- corner(G,m){drawTouchPanel(G,m+SAFE.l,m+SAFE.t);return m+SAFE.t+130;},
+ corner(G,m,narrow,fx){drawTouchPanel(G,m+SAFE.l,m+SAFE.t,fx.lag);return m+SAFE.t+panelH()+14;},
  msgX:m=>m+2+SAFE.l,miniW:()=>120,safeR:()=>SAFE.r,safeT:()=>SAFE.t,
  // 消息宽度：竖屏停在顶部按键左边；横屏别伸到角色（中线左 70px）那边
  msgW:m=>V.H>V.W?V.W-SAFE.r-178-(m+2+SAFE.l):Math.min(260,V.W*.34),
  // 区域横幅：竖屏放到顶部按键下面，横屏放到左上面板和顶部按键之间的下沿
  bannerY:()=>V.H>V.W?Math.max(V.H*.2,SAFE.t+246):SAFE.t+100,
- top(){},bottom(){},
+ top(){},
+ bottom(G,m,fx){drawHpArc(G,fx.lag);if(V.W>V.H)drawVitals(G.pl,vitRect(),fx.lag);},
  promptY:()=>Math.min(V.H*.64,V.H-150),interactHint:'',
  markerPad:sn=>sn<0?(V.H>V.W?SAFE.t+178:36):(V.H>V.W?210:36),
- // 边缘箭头（撤离点、屏幕外的敌人）不压在左上面板、小地图、顶部按键和右下按键区上：挪到它们下面 / 上面
+ // 边缘箭头（撤离点、屏幕外的敌人）不压在左上面板、小地图、顶部按键、右下按键区和横屏底部生命条上：挪到它们下面 / 上面
  avoid(x,y){const {W,H}=V,cw=Math.min(196,W*.5-24);
   if(H>W){if(x>W-260-SAFE.r&&y>H-260-SAFE.b)return H-260-SAFE.b;
    return y<SAFE.t+178&&(x<SAFE.l+cw+30||x>W-176-SAFE.r)?SAFE.t+178:y;}
   if(x>W-230-SAFE.r&&y>H-214-SAFE.b)return H-214-SAFE.b;
-  if(x<SAFE.l+cw+30&&y<SAFE.t+146)return SAFE.t+146;
+  const vr=vitRect();if(x>vr.x-16&&x<vr.x+vr.w+16&&y>vr.y-16)return vr.y-16;
+  if(x<SAFE.l+cw+30&&y<SAFE.t+panelH()+30)return SAFE.t+panelH()+30;
   return x>W-314-SAFE.r&&y<SAFE.t+120?SAFE.t+120:y;
  },
  aim(G){
@@ -2389,18 +2505,45 @@ const HUD_MOBILE={
 };
 // 放不下就截短加「…」（320 宽时左上面板只有 136px，计时和区域名会撞在一起）
 function fit(s,max,font){ctx.font=font;if(ctx.measureText(s).width<=max)return s;while(s.length>1&&ctx.measureText(s+'…').width>max)s=s.slice(0,-1);return s+'…';}
-function drawTouchPanel(G,x,y){
- const w=Math.min(196,V.W*.5-24),h=116,p=G.pl,hp=Math.ceil(p.hp);panel(x,y,w,h);
+function drawTouchPanel(G,x,y,lag){
+ const port=V.H>V.W,w=Math.min(196,V.W*.5-24),h=panelH(),p=G.pl,hp=Math.ceil(p.hp);panel(x,y,w,h);
  txt(G.mode==='x'?'机密行动':'常规行动',x+10,y+16,`600 10.5px ${F_BODY}`,'#82939a');
  txt(`击倒 ${G.kills}`,x+w-10,y+16,`600 10.5px ${F_MONO}`,'#d9e1de','right');
  txt(mmss(G.time),x+10,y+44,`700 28px ${F_DISP}`,G.time<60?'#e5484d':G.time<180?'#f0a43a':'#d9e1de');
  ctx.font=`700 28px ${F_DISP}`;const zf=`600 11px ${F_BODY}`;txt(fit(G.zone,w-28-ctx.measureText(mmss(G.time)).width,zf),x+w-10,y+42,zf,'#82939a','right');
- bar(x+10,y+54,w-44,7,p.hp/p.maxhp,hp<35?'#e5484d':'#d9e1de');txt(String(hp),x+w-10,y+62,`700 13px ${F_MONO}`,hp<35?'#e5484d':'#d9e1de','right');
+ const bv=G.bagValue(),bag=()=>txt(`背包 ${G.bagUsed()}/${p.cap} · ${fmtK(bv)}`,x+10,y+h-8,`600 11px ${F_BODY}`,bv>=100000?'#f2c14e':'#d9e1de');
+ if(!port){bag();return;}
+ hpBar(x+10,y+54,w-44,8,p,lag,true);txt(String(hp),x+w-10,y+62,`700 13px ${F_MONO}`,hpCol(hp),'right');
  const hw=(w-26)/2,ar=p.armor,he=p.helmet;
  txt(ar.lvl?`甲${ar.lvl} ${Math.ceil(ar.cur)}`:'无护甲',x+10,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');bar(x+10,y+83,hw,3,ar.lvl?ar.cur/ar.dur:0,'#4f95e6');
  txt(he.lvl?`盔${he.lvl} ${Math.ceil(he.cur)}`:'无头盔',x+16+hw,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');bar(x+16+hw,y+83,hw,3,he.lvl?he.cur/he.dur:0,'#4f95e6');
  bar(x+10,y+91,w-20,2,p.stam/100,'#f0a43a');
- const bv=G.bagValue();txt(`背包 ${G.bagUsed()}/${p.cap} · ${fmtK(bv)}`,x+10,y+108,`600 11px ${F_BODY}`,bv>=100000?'#f2c14e':'#d9e1de');
+ bag();
+}
+// 横屏底部生命条：左边大号数字，每 10 点一格；体力没满时在生命条下面画一道；下面一行护甲、头盔
+function drawVitals(p,{x,y,w,h},lag){
+ const hp=Math.ceil(p.hp),bx=x+44,bw=w-54;panel(x,y,w,h);
+ txt(String(hp),x+10,y+19,`700 16px ${F_MONO}`,hpCol(hp));
+ hpBar(bx,y+8,bw,10,p,p.dead?0:lag,true);
+ if(p.stam<100)bar(bx,y+21,bw,2,p.stam/100,'#f0a43a');
+ const gw=(w-30)/2;prot(p.armor,'甲','无护甲',x+10,y+h-7,gw);prot(p.helmet,'盔','无头盔',x+20+gw,y+h-7,gw);
+}
+function prot(a,k,none,x,y,w){
+ if(!a.lvl){txt(none,x,y,`600 10.5px ${F_BODY}`,'#82939a');return;}
+ txt(k+a.lvl,x,y,`600 10.5px ${F_BODY}`,'#4f95e6');txt(String(Math.ceil(a.cur)),x+w,y,`600 10.5px ${F_MONO}`,'#4f95e6','right');
+ bar(x+24,y-6,w-52,4,a.cur/a.dur,'#4f95e6');
+}
+// 角色脚下的生命弧（下方 120°，从左往右填）：瞟一眼角色就知道血量；弧形和敌人头顶的直条（view/render.js）区分开；满血不画。
+// 半径 r+22 世界单位：在最长的枪管（29）和治疗进度圈（view/render.js，半径 26）外面
+function drawHpArc(G,lag){
+ const p=G.pl;if(p.dead||(p.hp>=p.maxhp&&!(lag>p.hp)))return;
+ const s=toScreen(p.x,p.y),r=Math.max(22,(p.r+22)*V.Z),a0=Math.PI*5/6,sp=Math.PI*2/3,hp=Math.ceil(p.hp);
+ const arc=(v0,v1,col,lw)=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();ctx.arc(s.x,s.y,r,a0-sp*clamp(v0/p.maxhp,0,1),a0-sp*clamp(v1/p.maxhp,0,1),true);ctx.stroke();};
+ ctx.globalAlpha=hp<35?.75+.25*Math.sin(G.t*5):.9;   // 危险时跟红色暗角（view/hud.js）同频闪
+ arc(0,p.maxhp,'rgba(8,13,15,.55)',6);arc(0,p.maxhp,'rgba(255,255,255,.12)',3);
+ if(p.heal)arc(p.hp,p.hp+MEDS[p.heal.k].heal,'rgba(98,196,111,.75)',3);
+ if(lag>p.hp)arc(p.hp,lag,'rgba(255,255,255,.55)',3);
+ arc(0,p.hp,hpCol(hp),3);ctx.globalAlpha=1;
 }
 /* 手机版画面参数：更近的镜头、稳定跟随（只按移动速度轻微前瞻，不跟朝向甩）、减弱抖屏；
  横屏时角色放在中线左边 70px：右下的按键簇挡住了东南方，镜头往右让一点，东边能多看到一截 */
@@ -2420,11 +2563,11 @@ const VIEW_MOBILE={
 return Object.freeze({HUD_MOBILE,VIEW_MOBILE});
 })();
 /* ---- platform/mobile/index.js ---- */
-__m[21]=(function(){
+__m[22]=(function(){
 /* ================= 手机版平台对象：触屏操作 + 手机版 HUD 与画面参数 =================
  平台对象的接口见 docs/architecture/platform.md：touch · control · hud · view · raidStart(say) · hurt()。 */
-const {HUD_MOBILE,VIEW_MOBILE}=__m[20];
-const {CONTROL_MOBILE}=__m[19];
+const {HUD_MOBILE,VIEW_MOBILE}=__m[21];
+const {CONTROL_MOBILE}=__m[20];
 const {V}=__m[12];
 
 const PF_MOBILE={touch:true,hud:HUD_MOBILE,view:VIEW_MOBILE,control:CONTROL_MOBILE,
@@ -2434,17 +2577,17 @@ const PF_MOBILE={touch:true,hud:HUD_MOBILE,view:VIEW_MOBILE,control:CONTROL_MOBI
 return Object.freeze({PF_MOBILE});
 })();
 /* ---- platform/index.js ---- */
-__m[22]=(function(){
+__m[23]=(function(){
 /* ================= 平台层入口 =================
  电脑版、手机版两套界面层都装上：布局在打开时按设备决定（detect.js），操作和 HUD 按最近一次输入随时切换（state.js SCHEME）。
  对外：initInput(app) 装上输入监听 · active() 当前生效的平台对象 · useTouch(v) 切换操作方式 · enterRaid / leaveRaid / syncTouch 管触屏按键区 ·
  ORIENT / applyOrient / setOrient 画面方向（orient.js）。 */
 const {SCHEME,isT,setScheme}=__m[14];
 const {ORIENT:OR,applyOrient:applyO,setOrient:setO}=__m[13];
-const {PF_DESKTOP}=__m[17];
-const {PF_MOBILE}=__m[21];
-const {initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys}=__m[16];
-const {initMobileInput,touchCanvasDown,touchMove,touchUp,releaseTouch,resetTouchUI,showTouchControls,syncTouchUI}=__m[19];
+const {PF_DESKTOP}=__m[18];
+const {PF_MOBILE}=__m[22];
+const {initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys}=__m[17];
+const {initMobileInput,touchCanvasDown,touchMove,touchUp,releaseTouch,resetTouchUI,showTouchControls,syncTouchUI}=__m[20];
 
 const active=()=>SCHEME.touch?PF_MOBILE:PF_DESKTOP;
 const ORIENT=OR;
@@ -2477,79 +2620,6 @@ function initInput(app){
 
 return Object.freeze({active,ORIENT,applyOrient,setOrient,useTouch,enterRaid,leaveRaid,syncTouch,initInput});
 })();
-/* ---- view/hud.js ---- */
-__m[23]=(function(){
-/* ================= HUD：共享部分 =================
- 平台差异（角落面板、底部面板、瞄准 / 摇杆显示、提示位置、避让区域）由当前平台对象的 hud 提供（platform/desktop、platform/mobile）；
- 平台对象按最近一次输入选用，所以带键盘的平板或触屏笔记本也能随时切换。 */
-const {TAU}=__m[1];
-const {MEDS}=__m[2];
-const {MW,MH}=__m[3];
-const {ctx,V,SAFE,LAYERS,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
-
-function drawHUD(G,fx,PF){
- ctx.setTransform(V.dpr,0,0,V.dpr,0,0);
- const {W,H,Z}=V,P=PF.hud,m=14,narrow=W<560,pl=G.pl,ps=toScreen(pl.x,pl.y);
- if(!pl.dead&&pl.hp<35){const a=(1-pl.hp/35)*.55*(.7+.3*Math.sin(G.t*5));const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.75);
-  g.addColorStop(0,'rgba(120,0,0,0)');g.addColorStop(1,`rgba(160,12,12,${a})`);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
- for(const h of fx.hurt){ctx.strokeStyle=`rgba(229,72,77,${Math.min(1,h.t)})`;ctx.lineWidth=5;ctx.beginPath();ctx.arc(ps.x,ps.y,70,h.a-.35,h.a+.35);ctx.stroke();}
- let my=P.corner(G,m,narrow);
- // 提示消息：超过平台给的宽度就折行（手机竖屏右边是顶部按键）
- const mf=`600 ${narrow?12:13}px ${F_BODY}`,mfw=P.msgW(m);
- for(const s of fx.msgs){ctx.globalAlpha=Math.min(1,s.life);for(const ln of wrap(s.t,mfw,mf)){txt(ln,P.msgX(m),my,mf,s.c);my+=narrow?18:20;}}ctx.globalAlpha=1;
- // minimap
- const mw=P.miniW(narrow),mh=Math.round(mw*MH/MW),mx=W-m-P.safeR()-mw,myy=m+P.safeT(),sc=mw/MW;
- panel(mx-4,myy-4,mw+8,mh+8);ctx.globalAlpha=.9;ctx.drawImage(LAYERS.mini,mx,myy,mw,mh);ctx.globalAlpha=1;
- for(const x of G.ext){ctx.strokeStyle='#4fc3b8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(mx+x.x*sc,myy+x.y*sc,5,0,TAU);ctx.stroke();}
- ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.strokeRect(mx+V.left*sc,myy+V.top*sc,W/Z*sc,H/Z*sc);
- ctx.save();ctx.translate(mx+pl.x*sc,myy+pl.y*sc);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,4);ctx.lineTo(-4,-4);ctx.fill();ctx.restore();
- P.top(G,m,narrow);
- // zone banner
- if(fx.zoneT>0){const by=P.bannerY();ctx.globalAlpha=Math.min(1,fx.zoneT);txt(G.zone,W/2,by,`800 ${narrow||H<440?30:40}px ${F_DISP}`,'#d9e1de','center');
-  txt('进入区域',W/2,by+24,`600 12px ${F_BODY}`,'#82939a','center');ctx.globalAlpha=1;}
- P.bottom(G,m);
- // center prompts
- const cy=P.promptY(m);
- if(G.extZone){const p=G.extT/6;const w=Math.min(320,W-40);panel(W/2-w/2,cy-34,w,44);txt(`正在撤离 · ${G.extZone.n}`,W/2-w/2+12,cy-12,`700 14px ${F_BODY}`,'#4fc3b8');
-  txt((6-G.extT).toFixed(1)+'s',W/2+w/2-12,cy-12,`700 14px ${F_MONO}`,'#4fc3b8','right');bar(W/2-w/2+12,cy-2,w-24,4,p,'#4fc3b8');}
- else if(pl.heal)txt(`正在使用 ${MEDS[pl.heal.k].n} · ${pl.heal.t.toFixed(1)}s`,W/2,cy,`700 14px ${F_BODY}`,'#62c46f','center');
- else if(G.near&&!G.lootC&&!pl.dead){const c=G.near,s=(c.opened&&!c.items.length?'已搜空 · ':P.interactHint+(c.opened?'继续搜索 · ':'搜索 · '))+c.name;
-  ctx.font=`700 14px ${F_BODY}`;const tw=ctx.measureText(s).width+26;panel(W/2-tw/2,cy-22,tw,32);txt(s,W/2,cy-1,`700 14px ${F_BODY}`,c.opened&&!c.items.length?'#82939a':'#f0a43a','center');}
- // extract edge markers
- for(const x of G.ext){const s=toScreen(x.x,x.y);const pad=34;if(s.x>pad&&s.x<W-pad&&s.y>pad+80&&s.y<H-pad)continue;
-  const a=Math.atan2(s.y-H/2,s.x-W/2),sn=Math.sin(a),r=Math.min((W/2-pad-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-P.markerPad(sn))/Math.abs(sn||1e-6));
-  let ex=W/2+Math.cos(a)*r,ey=H/2+Math.sin(a)*r;ey=P.avoid(ex,ey);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#4fc3b8';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,8);ctx.lineTo(-6,-8);ctx.fill();ctx.restore();
-  txt(Math.round(Math.hypot(x.x-pl.x,x.y-pl.y)/10)+'m',ex-Math.cos(a)*22,ey-Math.sin(a)*22+4,`600 11px ${F_MONO}`,'#4fc3b8','center');}
- // visible enemies that are off-screen
- for(const e of G.enemies){if(e.dead||!e.vis)continue;const s=toScreen(e.x,e.y);if(s.x>0&&s.x<W&&s.y>0&&s.y<H)continue;
-  const a=Math.atan2(s.y-H/2,s.x-W/2),r=Math.min((W/2-18-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-18)/Math.abs(Math.sin(a)||1e-6));
-  const ex=W/2+Math.cos(a)*r,ey=P.avoid(ex,H/2+Math.sin(a)*r);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#e5484d';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,7);ctx.lineTo(-6,-7);ctx.fill();ctx.restore();}
- P.aim(G,ps);
- if(fx.hitMark>0){const hp=P.hitPos(G,ps),hx=hp.x,hy=hp.y,s=fx.hitMark*40;
-  ctx.strokeStyle=fx.hitHead?'#e5484d':'#fff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(hx-s,hy-s);ctx.lineTo(hx-s/2,hy-s/2);ctx.moveTo(hx+s,hy-s);ctx.lineTo(hx+s/2,hy-s/2);ctx.moveTo(hx-s,hy+s);ctx.lineTo(hx-s/2,hy+s/2);ctx.moveTo(hx+s,hy+s);ctx.lineTo(hx+s/2,hy+s/2);ctx.stroke();}
- if(pl.dead){txt('阵亡',W/2,H/2,`800 64px ${F_DISP}`,'#e5484d','center','middle');}
- if(G.bigMap)drawBigMap(G,PF);
-}
-// 按宽度折行（逐字，中文为主）
-function wrap(s,max,font){
- ctx.font=font;if(ctx.measureText(s).width<=max)return[s];
- const out=[];let ln='';for(const ch of s){if(ln&&ctx.measureText(ln+ch).width>max){out.push(ln);ln='';}ln+=ch;}if(ln)out.push(ln);return out;
-}
-function drawBigMap(G,PF){
- const {W,H}=V,world=G.world,pl=G.pl;
- ctx.fillStyle='rgba(4,8,10,.88)';ctx.fillRect(0,0,W,H);
- const s=Math.min((W-32)/MW,(H-90)/MH),w=MW*s,h=MH*s,x=(W-w)/2,y=(H-h)/2+16;
- ctx.drawImage(LAYERS.ground,x,y,w,h);ctx.drawImage(LAYERS.obs,x,y,w,h);ctx.strokeStyle='#33454d';ctx.strokeRect(x,y,w,h);
- txt('港区全图',x,y-14,`700 20px ${F_DISP}`,'#d9e1de');txt(PF.touch?'点「地图」关闭':'M 关闭',x+w,y-14,`600 12px ${F_MONO}`,'#82939a','right');
- for(const z of world.zones){if(z.n==='港区公路'||z.n==='栈桥')continue;txt(z.n,x+(z.x+z.w/2)*s,y+(z.y+z.h/2)*s,`700 ${Math.max(11,14*s*3)}px ${F_BODY}`,'rgba(217,225,222,.75)','center','middle');}
- for(const c of world.conts)if(c.opened){ctx.fillStyle=c.items.length?'#8fa3a8':'#3a484d';ctx.fillRect(x+c.x*s-2,y+c.y*s-2,4,4);}
- for(const e of world.extracts){const on=G.ext.includes(e);ctx.strokeStyle=on?'#4fc3b8':'#4a5a60';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x+e.x*s,y+e.y*s,70*s+3,0,TAU);ctx.stroke();
-  txt(e.n+(on?'':' · 未开放'),x+e.x*s,y+e.y*s-70*s-8,`600 12px ${F_BODY}`,on?'#4fc3b8':'#6b7b80','center');}
- ctx.save();ctx.translate(x+pl.x*s,y+pl.y*s);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6);ctx.lineTo(-6,-6);ctx.fill();ctx.restore();
-}
-
-return Object.freeze({drawHUD});
-})();
 /* ---- view/render.js ---- */
 __m[24]=(function(){
 /* ================= 画面：静态图层（地面、障碍、小地图）与每帧的世界渲染 =================
@@ -2559,7 +2629,7 @@ const {CONT_GLYPH}=__m[2];
 const {MW,MH,SEA_Y,YARD_X,YARD_Y,TANKS,PIER,HELIPAD,segObs}=__m[3];
 const {VIS_R}=__m[4];
 const {ctx,fc,fctx,V,cam,LAYERS,F_DISP,F_BODY,F_MONO,MINI_W,MINI_H,setWorld}=__m[12];
-const {drawHUD}=__m[23];
+const {drawHUD}=__m[15];
 
 const rnd=(a,b)=>a+Math.random()*(b-a);   // 画面装饰用的随机（地面纹理、抖屏），和对局的随机数无关
 
@@ -2743,13 +2813,13 @@ return Object.freeze({renderStatic,render});
 __m[25]=(function(){
 /* ================= 局内反馈：把对局事件变成特效、提示、音效和震动 =================
  core/raid.js 只发事件（raid.events），这里决定怎么表现：枪口火光、弹着火花、血迹、抖屏、受击方向、命中标记、提示消息、进入区域横幅。
- 这些状态只属于画面，不影响对局结果。handle() 处理一条事件，update() 随对局计时衰减（暂停时不调用）。 */
+ 这些状态只属于画面，不影响对局结果（S.lag 是生命条的受击残影）。handle() 处理一条事件，update() 随对局计时衰减（暂停时不调用）。 */
 const {clamp}=__m[1];
 
 const rnd=(a,b)=>a+Math.random()*(b-a);
 function createEffects(audio){
- const S={fx:[],decals:[],msgs:[],hurt:[],hitMark:0,hitHead:false,shake:0,zone:'',zoneT:0};
- function reset(){Object.assign(S,{fx:[],decals:[],msgs:[],hurt:[],hitMark:0,hitHead:false,shake:0,zone:'',zoneT:0});}
+ const S={fx:[],decals:[],msgs:[],hurt:[],hitMark:0,hitHead:false,shake:0,zone:'',zoneT:0,lag:null,hpWas:0,lagT:0};
+ function reset(){Object.assign(S,{fx:[],decals:[],msgs:[],hurt:[],hitMark:0,hitHead:false,shake:0,zone:'',zoneT:0,lag:null,hpWas:0,lagT:0});}
  function say(t,c,life){S.msgs.push({t,c:c||'#d9e1de',life:life||4});if(S.msgs.length>6)S.msgs.shift();}
  // PF：当前平台对象（受击时由它决定要不要震动）
  function handle(ev,PF){
@@ -2775,6 +2845,8 @@ function createEffects(audio){
   for(let i=S.msgs.length-1;i>=0;i--){S.msgs[i].life-=dt;if(S.msgs[i].life<=0)S.msgs.splice(i,1);}
   for(let i=S.hurt.length-1;i>=0;i--){S.hurt[i].t-=dt;if(S.hurt[i].t<=0)S.hurt.splice(i,1);}
   S.hitMark=Math.max(0,S.hitMark-dt);S.shake=Math.max(0,S.shake-dt*18);
+  // 生命条的受击残影（S.lag）：掉的那截停 0.5 秒再滑下去，连续挨打时一直停着，看得出这一波打掉了多少；回血直接跟上
+  const hp=G.pl.hp;if(S.lag==null||hp>=S.lag)S.lag=hp;else{if(hp<S.hpWas)S.lagT=.5;if((S.lagT-=dt)<=0)S.lag=Math.max(hp,S.lag-dt*60);}S.hpWas=hp;
   if(!G.over){if(G.zone!==S.zone){S.zone=G.zone;S.zoneT=2.6;}S.zoneT=Math.max(0,S.zoneT-dt);}
  }
  return{S,reset,say,handle,update};
@@ -2788,7 +2860,7 @@ __m[26]=(function(){
  只负责显示和收集点击；买卖、配装等规则在 core/profile.js，次数在 core/meta.js。 */
 const {fmt,fmtK}=__m[1];
 const {WEAPONS,ARMORS,HELMETS,BAGS,MEDS,ITEMS,MODES,RC,iName,iR,iSize,iVal}=__m[2];
-const {$,armConfirm}=__m[18];
+const {$,armConfirm}=__m[19];
 
 const GROUPS=[['w','主武器',WEAPONS],['a','防弹衣',ARMORS],['h','头盔',HELMETS],['b','背包',BAGS]];
 // profile / meta：存档与设备信息 · mobile：手机版布局 · device：全屏等设备能力 · deploy()：开始行动 · switchPlatform(p)：切换界面版本 · refresh()：重画大厅
@@ -2811,7 +2883,7 @@ function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh})
   }
   $('slots').innerHTML=html;
   $('meds').innerHTML=Object.keys(MEDS).map(k=>`<div class="med"><div><div>${MEDS[k].n}</div><div class="st">+${MEDS[k].heal} 生命 · ${fmt(MEDS[k].price)}</div></div>
-   <button data-med="${k}" data-d="-1" aria-label="退回一个${MEDS[k].n}">−</button><b>${S.meds[k]}</b><button data-med="${k}" data-d="1" aria-label="购买一个${MEDS[k].n}">+</button></div>`).join('');
+   <button data-med="${k}" data-d="-1" aria-label="退回一个${MEDS[k].n}"${profile.canRefund(k)?'':' disabled title="只能退回上一局之后在大厅买的"'}>−</button><b>${S.meds[k]}</b><button data-med="${k}" data-d="1" aria-label="购买一个${MEDS[k].n}">+</button></div>`).join('');
   const kv=profile.kitValue();$('kitValue').textContent=`配装价值 ${fmt(kv)}`;
   renderStash();
   const okX=profile.canEnter('x'),minX=MODES.x.minKit;
@@ -2866,7 +2938,7 @@ __m[27]=(function(){
  面板的开关跟着对局状态走：每帧 sync(raid) 对照一次，状态变了才动 DOM；按钮只调用 raid 的方法。 */
 const {fmt,fmtK,mmss}=__m[1];
 const {RC,RN,REVEAL,MEDS,BAGS,SAFE_CAP,iName,iR,iSize,iVal}=__m[2];
-const {$,armConfirm}=__m[18];
+const {$,armConfirm}=__m[19];
 
 // getRaid()：进行中的对局（没有则 null）· back()：结算页「返回基地」
 function createRaidUI({getRaid,back}){
@@ -3207,7 +3279,7 @@ __m[30]=(function(){
  规则都在 core/meta.js，这里只负责状态栏、弹窗、最近战绩、战绩图的分享与复制。 */
 const {fmtK,pad2}=__m[1];
 const {RULES,fmtDid,nameOK}=__m[6];
-const {$,esc,toast}=__m[18];
+const {$,esc,toast}=__m[19];
 const {makeCard}=__m[29];
 
 // meta：设备信息与规则 · device：分享 / 复制 / 下载 · touch()：当前是否触屏操作 · refresh()：重画大厅
@@ -3228,7 +3300,8 @@ function createMetaUI({meta,device,touch,refresh}){
 
  /* ---- 收到的链接 / 扫的码 / 粘贴的内容 ---- */
  async function handle(text){
-  const o=await meta.incoming(text);if(!o)return;
+  let o;try{o=await meta.incoming(text);}catch(e){console.error(e);o={text:'没认出这段内容，支持口令、邀请链接、回执链接',kind:'bad'};}   // 链接的 # 已经清掉了，出错也要给句话
+  if(!o)return;
   toast(o.text,o.kind);refresh();
  }
  function readURL(){
@@ -3274,7 +3347,7 @@ function createMetaUI({meta,device,touch,refresh}){
  function openPass(){
   const M=meta.M,code=fmtDid(M.did),pi=meta.passInfo();
   const box=modal(`<div class="res">口令 / 链接</div>
-   ${pi?`<p class="okline">口令已生效：${pi.until?`${pi.until} 前`:''}无限次行动。续期时把新口令粘贴到下面。</p>`:''}
+   ${pi?`<p class="okline">口令已生效：无限次行动${pi.until?`至 ${pi.until}（含当天）`:''}。续期时把新口令粘贴到下面。</p>`:''}
    <p class="resSub">收到的口令、邀请链接、回执链接都粘贴到这里。想要无限次行动：把设备码发给管理员，收到口令后粘贴进来。设备码是首次打开时随机生成的编号，不含任何个人或设备信息。</p>
    <input readonly id="didText" value="${code}" style="font:700 20px var(--mono);letter-spacing:.06em;text-align:center">
    <div class="tools"><button class="btn" id="didCopy">复制设备码</button><button class="btn" id="didShare">发给管理员</button></div>
@@ -3334,7 +3407,7 @@ function createMetaUI({meta,device,touch,refresh}){
   makeCard({r,rec,week:w,name:meta.M.name,link:meta.inviteLink(),t:rec?rec.t:Date.now()})
    .then(c=>{if(job!==cardJob)return;card=c;btn.disabled=false;btn.textContent='分享战绩图';$('shareLastBtn').hidden=false;})
    .catch(e=>{console.error(e);if(job===cardJob)btn.textContent='战绩图生成失败';});
-  if(meta.firstExtraction(r)){
+  if(meta.firstExtraction(rec)){
    acts.insertAdjacentHTML('beforeend',`<button class="btn" id="sumRc">给「${esc(meta.M.invitedBy.n)}」发回执（+${RULES.inviterBonus} 次）</button>`);
    acts.querySelector('#sumRc').addEventListener('click',shareReceipt);
   }
@@ -3357,7 +3430,7 @@ __m[31]=(function(){
 /* ================= 画面方向的按钮：大厅「转横屏 / 转竖屏」、暂停面板里同样的按钮、「玩法」里的三选一 =================
  只显示和转发点击；转屏本身在 platform/orient.js，由 app.js 注入的 set(pref) 完成（转屏、重设画布、提示）。 */
 const {V}=__m[12];
-const {$}=__m[18];
+const {$}=__m[19];
 
 // pref()：当前选择 'auto' 跟随手机 | 'land' 横屏 | 'port' 竖屏 · set(p)：改选择
 function createOrientUI({pref,set}){
@@ -3383,12 +3456,14 @@ __m[32]=(function(){
 function mountInstallHint(){
  let dismissed=false;try{dismissed=localStorage.getItem('reef-hint-off')==='1';}catch(_){}
  if(dismissed)return;
+ // 大厅页头改了结构就不出提示：没插进页面的提示条找不到按钮，挂监听会抛错
+ const wrap=document.querySelector('#lobby .wrap'),top=wrap&&wrap.querySelector('.top');if(!top)return;
  const ua=navigator.userAgent,iOS=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
  const box=document.createElement('div');box.className='hint';box.setAttribute('role','note');
  const close='<button class="sm" id="hintClose" aria-label="关闭提示">知道了</button>';
  if(iOS){box.innerHTML=`<div><b>装到主屏幕，像 App 一样玩</b><span>在 Safari 里点底部的「分享」按钮 → 选「添加到主屏幕」。之后从桌面图标打开会全屏显示，断网也能玩。</span></div>${close}`;}
  else{box.innerHTML=`<div><b>可以安装到桌面</b><span>浏览器菜单里选「安装应用」或「添加到主屏幕」，之后全屏打开、断网也能玩。</span></div><div class="tools"><button class="sm" id="hintInstall" hidden>安装</button>${close}</div>`;}
- const wrap=document.querySelector('#lobby .wrap'),top=wrap&&wrap.querySelector('.top');if(top)top.after(box);
+ top.after(box);
  document.getElementById('hintClose').addEventListener('click',()=>{box.remove();try{localStorage.setItem('reef-hint-off','1');}catch(_){}});
  let deferred=null;
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;const b=document.getElementById('hintInstall');if(b)b.hidden=false;});
@@ -3427,7 +3502,7 @@ const {createAudio}=__m[8];
 const {verifyEd25519,randomBytes}=__m[9];
 const {keepAwake,canFullscreen,enterFullscreen,lockOrientation,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker}=__m[10];
 const {PLATFORM,MOBILE,switchPlatform}=__m[11];
-const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient}=__m[22];
+const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient}=__m[23];
 const {cv,resize,resetCamera}=__m[12];
 const {render,renderStatic}=__m[24];
 const {createEffects}=__m[25];
@@ -3436,7 +3511,7 @@ const {createRaidUI}=__m[27];
 const {createMetaUI}=__m[30];
 const {createOrientUI}=__m[31];
 const {mountInstallHint}=__m[32];
-const {$,toast}=__m[18];
+const {$,toast}=__m[19];
 const {PASS_PUBKEY}=__m[33];
 const {PASS_REVOKED}=__m[34];
 
@@ -3473,16 +3548,29 @@ function onResize(){applyOrient();resize(active());orientUI.sync();}
 /* ---- 大厅 → 对局 → 结算 ---- */
 function deploy(){
  audio.unlock();
- if(!meta.consumePlay()){refresh();toast('今日次数已用完：明天 04:00 刷新，或邀请好友拿奖励次数','bad');return;}
+ // 先建局、烘焙地图，都成了才扣次数：存档里留着认不出的装备 id 时 createRaid 会抛错，扣在前面就每点一次白扣一次
  // 手机版的敌人反应和枪法放宽一些（触屏操作更难）
- const PF=active(),raid=createRaid({mode:profile.mode,loadout:profile.loadout(),rng:createRng(newSeed()),diff:MOBILE?1.15:1});
- effects.reset();for(const ev of raid.events.splice(0))effects.handle(ev,PF);
+ let raid=null;
+ try{raid=createRaid({mode:profile.mode,loadout:profile.loadout(),rng:createRng(newSeed()),diff:MOBILE?1.15:1});renderStatic(raid.world);}catch(err){console.error(err);raid=null;}
+ if(!raid||!meta.consumePlay()){
+  try{renderStatic(app.bg);}catch(_){}   // 静态图层可能已换成这局的地图，换回大厅背景
+  refresh();toast(raid?'今日次数已用完：明天 04:00 刷新，或邀请好友拿奖励次数':'出发失败，没扣次数：换一套配装再试，还不行就重置存档','bad');return;
+ }
+ const PF=active();effects.reset();drainEvents(raid,PF);
  PF.raidStart(effects.say);
- resetCamera(raid.pl.x,raid.pl.y);renderStatic(raid.world);app.bg=raid.world;
+ resetCamera(raid.pl.x,raid.pl.y);app.bg=raid.world;
  app.raid=raid;app.screen='raid';$('lobby').hidden=true;enterRaid();keepAwake(true);last=performance.now();
 }
+// 事件逐条兜错：一条特效或音效抛错只丢它自己。end 只发一次，丢了对局就停在结束状态、不结算
+function drainEvents(G,PF){
+ for(const ev of G.events.splice(0)){
+  try{effects.handle(ev,PF);}catch(err){console.error(err);}
+  if(ev.type==='end')raidEnded(ev.result);
+ }
+}
+// 存档结算、积分各自兜错，结算页总会出来
 function raidEnded(r){
- profile.settle(r);
+ try{profile.settle(r);}catch(e){console.error(e);}
  let rec=null;try{rec=meta.record(r);}catch(e){console.error(e);}
  setTimeout(()=>showSummary(r,rec),r.ok?400:1600);
 }
@@ -3502,7 +3590,7 @@ function loop(now){
   const G=getRaid(),PF=active();
   if(G){
    const ran=G.update(fdt,PF.control);
-   for(const ev of G.events.splice(0)){effects.handle(ev,PF);if(ev.type==='end')raidEnded(ev.result);}
+   drainEvents(G,PF);
    if(ran)effects.update(fdt,G);
   }
   render(fdt,G,effects.S,PF);
@@ -3511,23 +3599,30 @@ function loop(now){
  requestAnimationFrame(loop);
 }
 function start(data){
+ // 只跑一次：各 mount 挂的监听重跑会挂两遍（一次点击出发两次）。所以不靠重试，而是逐步兜错：
+ // 一步抛错（例如 index.html 少了 mount 要找的 id）只缺这一块，其余界面和主循环照常起来
  if(started)return;started=true;
- profile.load(data&&data.save);
+ const step=f=>{try{f();}catch(err){console.error(err);}};
+ step(()=>profile.load(data&&data.save));
  // 布局（平台）在 platform/detect.js 里已决定；操作方式先跟随平台，之后按实际输入自动切换
- initInput({canvas:cv,getRaid,unlockAudio:audio.unlock,onScheme:()=>resize(active())});
- let coarse=false;try{coarse=matchMedia('(pointer: coarse)').matches;}catch(_){}
- useTouch(coarse||MOBILE,true);
- meta.load();
- lobby.mount();raidUI.mount();metaUI.mount();orientUI.mount();
- applyOrient();resize(active());orientUI.sync();app.bg=createWorld('n',createRng(newSeed()));renderStatic(app.bg);refresh();requestAnimationFrame(loop);
- meta.refreshPass().then(()=>{refresh();metaUI.readURL();});
+ step(()=>{
+  initInput({canvas:cv,getRaid,unlockAudio:audio.unlock,onScheme:()=>resize(active())});
+  let coarse=false;try{coarse=matchMedia('(pointer: coarse)').matches;}catch(_){}
+  useTouch(coarse||MOBILE,true);
+ });
+ step(meta.load);
+ for(const ui of[lobby,raidUI,metaUI,orientUI])step(ui.mount);
+ step(()=>{applyOrient();resize(active());orientUI.sync();});
+ step(()=>{app.bg=createWorld('n',createRng(newSeed()));renderStatic(app.bg);});
+ step(refresh);requestAnimationFrame(loop);
+ meta.refreshPass().then(()=>{step(refresh);metaUI.readURL();});
  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(app.screen!=='raid')renderStatic(app.bg);});
 }
 window.addEventListener('resize',onResize);
 
-/* ---- PWA：离线缓存；从主屏幕打开时不再提示安装 ---- */
-registerServiceWorker();
-if(isStandalone())document.documentElement.classList.add('standalone');else mountInstallHint();
+/* ---- PWA：离线缓存；从主屏幕打开时不再提示安装。可有可无，出错也不能拦住后面的启动 ---- */
+try{registerServiceWorker();}catch(err){console.error(err);}
+try{if(isStandalone())document.documentElement.classList.add('standalone');else mountInstallHint();}catch(err){console.error(err);}
 
 /* ---- 启动（兼容热更新环境：带着存档重启） ---- */
 try{window.claude&&window.claude.hot&&window.claude.hot.snapshot&&window.claude.hot.snapshot(()=>({save:profile.save}));}catch(_){}
