@@ -21,7 +21,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}
-/* ================= 共享样式：色板、大厅卡片、局内面板、弹窗、排行 ================= */
+/* ================= 共享样式：色板、大厅卡片、局内面板、弹窗、战绩图预览 ================= */
 .grid{display:grid;grid-template-columns:1fr;gap:18px}
 .deploy{display:grid;grid-template-columns:1fr;gap:12px;align-items:stretch}
 
@@ -32,13 +32,22 @@ html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 #game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+/* 安全区（刘海、圆角、底部横条）统一走 --sa-*，整页转 90° 时四条边跟着换 */
+:root{--sa-t:env(safe-area-inset-top,0px);--sa-r:env(safe-area-inset-right,0px);--sa-b:env(safe-area-inset-bottom,0px);--sa-l:env(safe-area-inset-left,0px)}
+/* 转屏：选的方向和手机拿的方向不一致时把整页 body 转 90°（platform/orient.js 设 .rot90 / .rot270 和实际视口宽高 --vw / --vh）。
+ body 带了 transform 就是所有 fixed 元素的定位框，画布、面板、按键区跟着一起转；.land / .port 是转过之后的方向 */
+html.rot body{position:fixed;left:0;top:0;width:var(--vh);height:var(--vw);transform-origin:0 0}
+html.rot90 body{transform:translateX(var(--vw)) rotate(90deg);--sa-t:env(safe-area-inset-right,0px);--sa-r:env(safe-area-inset-bottom,0px);--sa-b:env(safe-area-inset-left,0px);--sa-l:env(safe-area-inset-top,0px)}
+html.rot270 body{transform:translateY(var(--vh)) rotate(-90deg);--sa-t:env(safe-area-inset-left,0px);--sa-r:env(safe-area-inset-top,0px);--sa-b:env(safe-area-inset-right,0px);--sa-l:env(safe-area-inset-bottom,0px)}
+/* 转过的滚动区：touch-action 的 pan-x / pan-y 按屏幕算还是按元素算，各浏览器不一样，两个方向都放开 */
+html.rot #lobby,html.rot .stash,html.rot #lootList,html.rot #inv .box,html.rot .sbox{touch-action:pan-x pan-y}
 .overlay{position:fixed;inset:0;z-index:10}
 button{font:inherit}
 button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;color:var(--text);background:#101a1d}
 
 /* ---------- lobby ---------- */
-#lobby{overflow:auto;touch-action:pan-y;background:linear-gradient(180deg,rgba(8,13,15,.35),rgba(8,13,15,.9) 45%,rgba(8,13,15,.97));padding-inline:16px;padding-block:calc(18px + env(safe-area-inset-top,0px)) 28px}
+#lobby{overflow:auto;touch-action:pan-y;background:linear-gradient(180deg,rgba(8,13,15,.35),rgba(8,13,15,.9) 45%,rgba(8,13,15,.97));padding-inline:16px;padding-block:calc(18px + var(--sa-t)) 28px}
 .wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-block:4px 14px}
 .logo{font:800 clamp(38px,7vw,64px)/.95 var(--disp);letter-spacing:.08em}
@@ -91,26 +100,33 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .help{color:var(--muted);font-size:13px;line-height:1.8;background:var(--panel);border:1px solid var(--line);padding:12px 16px}
 .help summary{cursor:pointer;color:var(--text);font-weight:600}
 .help p{margin:.4em 0;max-width:72ch}
+html.touch .help .kb,html:not(.touch) .help .tc{display:none}   /* 操作说明跟着当前操作方式：触屏只讲按键区，键鼠只讲按键 */
 
 /* ---------- in-raid panels ---------- */
 #loot{position:fixed;right:16px;top:50%;transform:translateY(-50%);width:min(320px,calc(100% - 32px));background:rgba(9,15,17,.95);border:1px solid var(--line);z-index:6;display:flex;flex-direction:column}
 #loot header,#inv header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font:700 17px var(--disp);letter-spacing:.08em}
 #loot header small{font:500 11px var(--mono);color:var(--muted);letter-spacing:.02em}
+#loot .x{display:none;place-items:center;flex:0 0 auto;width:44px;height:40px;border:0;border-left:1px solid var(--line);background:none;color:var(--muted);font:600 15px var(--body);cursor:pointer}
 #lootList{display:flex;flex-direction:column;max-height:48vh;overflow:auto;touch-action:pan-y}
-.lr{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:8px 12px;border:0;border-bottom:1px solid #182327;cursor:pointer;background:none;color:var(--text);text-align:left;width:100%}
+.lr{box-sizing:border-box;display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:8px 12px;border:0;border-bottom:1px solid #182327;cursor:pointer;background:none;color:var(--text);text-align:left;width:100%}
 .lr:hover{background:#121d21}
 .sw{width:28px;height:28px;display:grid;place-items:center;font:600 11px var(--mono);color:#0b1113;background:var(--rc)}
 .lr .n{font-size:13px;font-weight:600;color:var(--rc)}
 .lr .m{font:11px var(--mono);color:var(--muted)}
+.lr.nofit{box-shadow:inset 0 0 0 2px var(--red)}
 .lr.unk{cursor:default}.lr.unk .n{color:var(--muted)}.lr.unk .sw{background:#243236;color:var(--muted)}
 .pb{height:3px;background:#223034;margin-top:5px}.pb b{display:block;height:100%;background:var(--amber);width:0}
 #loot footer{display:flex;gap:8px;padding:10px 12px;align-items:center;justify-content:space-between}
 #loot footer .m{font:11px var(--mono);color:var(--muted)}
 @media(max-width:700px){#loot{top:64px;transform:none}#lootList{max-height:34vh}}
 #inv{display:flex;align-items:center;justify-content:center;background:rgba(3,6,7,.55);z-index:7;padding-inline:16px}
-#inv .box{width:min(780px,100%);max-height:88vh;overflow:auto;background:rgba(9,15,17,.97);border:1px solid var(--line);touch-action:pan-y}
+#inv .box{width:min(780px,100%);max-height:calc(100% - 24px);overflow:auto;background:rgba(9,15,17,.97);border:1px solid var(--line);touch-action:pan-y}
+#inv header{position:sticky;top:0;z-index:1;background:rgb(9,15,17)}   /* 列表长了滚动时关闭键不跟着滚走 */
+#inv .ps{display:none;font:500 11px var(--mono);color:var(--muted);letter-spacing:.02em}
+html.touch #inv .ps{display:inline}   /* 触屏开着背包时对局暂停（core/raid.js update 的 invPause） */
 #inv .cols{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;padding:14px 16px 16px}
 @media(max-width:700px){#inv .cols{grid-template-columns:1fr}}
+html.rot270 #inv .cols{grid-template-columns:1fr}   /* 下面几条：转屏后 @media 量的还是实际视口，按转过来的尺寸补上 */
 .sec{display:flex;flex-direction:column;gap:6px;min-width:0}
 .cap{height:6px;background:#1b272b}.cap b{display:block;height:100%;background:var(--teal)}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #182327}
@@ -122,17 +138,21 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .kvs{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
 .kvs span:nth-child(odd){color:var(--muted)}
 .center{display:flex;align-items:center;justify-content:center;background:rgba(3,6,7,.72);padding-inline:16px;z-index:12}
-.sbox{width:min(560px,100%);max-height:90vh;overflow:auto;background:rgba(9,15,17,.97);border:1px solid var(--line);padding:22px;display:flex;flex-direction:column;gap:14px;touch-action:pan-y}
+.sbox{box-sizing:border-box;width:min(560px,100%);max-height:calc(100% - 24px);overflow:auto;background:rgba(9,15,17,.97);border:1px solid var(--line);padding:22px;display:flex;flex-direction:column;gap:14px;touch-action:pan-y}
 .res{font:800 40px/1 var(--disp);letter-spacing:.1em}
+#backBtn{position:sticky;bottom:0;flex:0 0 auto}   /* 结算框放不下时「返回基地」贴在框底，不用滚动去找 */
+@media(max-height:480px){.sbox{padding:14px;gap:10px}.res{font-size:28px}}
+html.rot90 .sbox{padding:14px;gap:10px}html.rot90 .res{font-size:28px}
 .res.ok{color:var(--teal)}.res.bad{color:var(--red)}
 .resSub{color:var(--muted);font-size:13.5px;line-height:1.6;margin:0}
 .kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 @media(max-width:520px){.kv{grid-template-columns:repeat(2,minmax(0,1fr))}}
+html.rot270 .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
 .kv div{border:1px solid var(--line);padding:8px 10px;display:flex;flex-direction:column;gap:3px}
 .kv b{font:700 20px var(--disp);font-variant-numeric:tabular-nums}
 .resItems{display:flex;flex-wrap:wrap;gap:6px}
 .tag{font-size:12px;padding:3px 8px;border:1px solid var(--rc);color:var(--rc)}
-/* ---------- phase 1: code name, plays, invites, friend board ---------- */
+/* ---------- phase 1: code name, plays, invites, score card ---------- */
 .status{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);padding:10px 14px}
 .status .who{display:flex;align-items:baseline;gap:8px;min-width:0}
 .status .who b{font:700 20px var(--disp);letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -141,18 +161,14 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .pill{font:600 12px var(--body);padding:4px 10px;border:1px solid var(--line2);color:var(--text)}
 .pill.ok{border-color:var(--teal);color:var(--teal)}
 .pill.dim{color:var(--muted)}
-.board{display:flex;flex-direction:column}
-.brow{display:grid;grid-template-columns:30px minmax(0,1fr) auto;column-gap:10px;padding:8px 4px;border-bottom:1px solid #182327;align-items:center}
-.brow .rk{grid-row:1/3;font:700 18px var(--disp);color:var(--muted);text-align:center}
-.brow:nth-child(-n+3) .rk{color:var(--amber)}
-.brow .bn{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.brow .bn small{font:600 10px var(--mono);color:var(--teal);border:1px solid var(--teal);padding:0 4px;margin-left:4px}
-.brow .bs{font:700 20px var(--disp);text-align:right;font-variant-numeric:tabular-nums}
-.brow .bm{grid-column:2/4;font:11px var(--mono);color:var(--muted)}
-.brow.me{background:rgba(79,195,184,.07)}
-.note{color:var(--muted);font-size:12.5px;line-height:1.6;margin:0;max-width:72ch}
+/* 战绩图预览：图片要能长按保存（body 关掉了长按菜单，这里单独打开）；横屏矮屏时图在左、文字和按钮在右 */
+.cardPrev,.cardSide{display:flex;flex-direction:column;gap:12px}
+.cardImg{display:block;max-width:100%;max-height:58vh;margin:0 auto;border:1px solid var(--line);-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+@media(max-height:560px) and (orientation:landscape){html:not(.rot) .cardPrev{flex-direction:row;align-items:flex-start;gap:16px}html:not(.rot) .cardImg{max-width:45%;max-height:calc(100vh - 90px);margin:0}html:not(.rot) .cardSide{flex:1 1 0;min-width:0}}
+html.rot .cardImg{max-height:calc(var(--vw) * .58)}
+html.rot90 .cardPrev{flex-direction:row;align-items:flex-start;gap:16px}html.rot90 .cardImg{max-width:45%;max-height:calc(var(--vw) - 90px);margin:0}html.rot90 .cardSide{flex:1 1 0;min-width:0}
 .sc{font:700 16px var(--disp);color:var(--amber)}
-#toast{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:rgba(9,15,17,.96);border:1px solid var(--line2);color:var(--text);padding:10px 16px;font-size:13.5px;max-width:calc(100% - 32px);width:max-content;text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(110px + var(--sa-b));transform:translateX(-50%);z-index:30;background:rgba(9,15,17,.96);border:1px solid var(--line2);color:var(--text);padding:10px 16px;font-size:13.5px;max-width:calc(100% - 32px);width:max-content;text-align:center}
 #toast.ok{border-color:var(--teal);color:var(--teal)}
 #toast.bad{border-color:var(--red);color:#ff8a8d}
 #modal{z-index:25}
@@ -169,8 +185,6 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .hint b{display:block;color:var(--teal);font-size:14px}
 .hint span{color:var(--text)}
 .hint .sm{flex:0 0 auto}
-.brow .bn .tag{font:500 11px var(--mono);font-style:normal;color:var(--muted)}
-
 /* ================= 电脑版专属样式：宽屏大厅布局、鼠标准星 ================= */
 .desktop .grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
 @media(max-width:880px){.desktop .grid{grid-template-columns:1fr}}
@@ -179,29 +193,47 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .desktop #rankCard{grid-column:1/-1}
 .desktop #game{cursor:crosshair}
 
-/* ================= 手机版专属样式：触屏按键、分页大厅、底部出发栏、居中搜索面板 ================= */
+/* ================= 手机版专属样式：触屏按键、分页大厅、底部出发栏、不挡角色的搜索面板 ================= */
 /* ---------- touch controls ---------- */
 #touch{position:fixed;inset:0;pointer-events:none;z-index:5}
-#touch button{position:fixed;pointer-events:auto;touch-action:none;border-radius:50%;background:rgba(12,19,22,.62);border:1px solid rgba(130,147,154,.5);color:var(--text);font:600 13px/1.15 var(--body);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0}
+/* 按键底色压得很淡，只留描边和字：右下这一簇按键正压在东南方的交战区上，要能透过它看见敌人和箱子 */
+#touch button{position:fixed;pointer-events:auto;touch-action:none;border-radius:50%;background:rgba(12,19,22,.3);border:1px solid rgba(130,147,154,.55);color:var(--text);text-shadow:0 1px 2px rgba(0,0,0,.9);font:600 13px/1.15 var(--body);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0}
 #touch button small{font:600 10px var(--mono);color:var(--muted)}
 #touch button:active,#touch button.on{background:rgba(240,164,58,.35)}
-#touch .tb-top{position:fixed;display:flex;gap:8px;pointer-events:none;right:max(14px,env(safe-area-inset-right,0px));top:calc(122px + env(safe-area-inset-top,0px))}
-@media (orientation:landscape){#touch .tb-top{top:calc(14px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px) + 132px)}}
+#touch .tb-top{position:fixed;display:flex;gap:8px;pointer-events:none;right:max(14px,var(--sa-r));top:calc(122px + var(--sa-t))}
+html.land #touch .tb-top{top:calc(14px + var(--sa-t));right:calc(14px + var(--sa-r) + 132px)}   /* .land / .port：转屏之后的方向（platform/orient.js），不用 @media (orientation) */
 #touch .tb-top button{position:static;width:46px;height:46px;border-radius:12px;font-size:12px}
-#fireBtn{width:100px;height:100px;right:calc(24px + env(safe-area-inset-right,0px));bottom:calc(24px + env(safe-area-inset-bottom,0px));background:rgba(229,72,77,.26)!important;border:2px solid rgba(229,72,77,.75)!important}
+#fireBtn{width:100px;height:100px;right:calc(24px + var(--sa-r));bottom:calc(24px + var(--sa-b));background:rgba(229,72,77,.16)!important;border:2px solid rgba(229,72,77,.75)!important}
 #fireBtn.on{background:rgba(229,72,77,.5)!important}
 #fireBtn b{font:700 32px/1 var(--disp);color:var(--text)}
 #fireBtn.empty{border-color:var(--amber)!important}
-#actR{width:58px;height:58px;right:calc(146px + env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px))}
-#actH{width:58px;height:58px;right:calc(30px + env(safe-area-inset-right,0px));bottom:calc(146px + env(safe-area-inset-bottom,0px))}
-#actF{width:64px;height:64px;right:calc(132px + env(safe-area-inset-right,0px));bottom:calc(132px + env(safe-area-inset-bottom,0px));opacity:.55}
+#actR{width:58px;height:58px;right:calc(146px + var(--sa-r));bottom:calc(30px + var(--sa-b))}
+#actH{width:58px;height:58px;right:calc(30px + var(--sa-r));bottom:calc(146px + var(--sa-b))}
+#actF{width:64px;height:64px;right:calc(132px + var(--sa-r));bottom:calc(132px + var(--sa-b));opacity:.55}
 #actF.hot{opacity:1;background:rgba(240,164,58,.4);border-color:var(--amber);animation:pulse 1.2s infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 9px rgba(240,164,58,.16)}}
-html.touch #loot{top:calc(8px + env(safe-area-inset-top,0px));left:50%;right:auto;transform:translateX(-50%);width:min(380px,calc(100% - 32px));max-height:calc(100% - 170px - env(safe-area-inset-top,0px))}
-html.touch #lootList{max-height:none;flex:1 1 auto;min-height:0}
-html.touch .lr{padding:10px 12px;min-height:52px}
+/* 搜索面板：物品排成小格子，面板不挡角色——竖屏夹在顶部按钮和角色之间，横屏放在两只拇指之间的底部；
+ 关闭键在标题栏，「全部拾取」就是右下的「搜索」键，所以不要底栏；挨打时（.hit）收起列表，让出视野看清是谁在打 */
+html.touch #loot{top:calc(184px + var(--sa-t));left:50%;right:auto;transform:translateX(-50%);width:min(440px,calc(100% - 24px));max-height:max(88px,calc(50% - 204px - var(--sa-t)))}
+html.touch #loot header{padding:0 0 0 10px;min-height:40px;font-size:14px}
+html.touch #lootTitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.touch #loot header small{margin-left:auto;white-space:nowrap}
+html.touch #loot .x{display:grid}
+html.touch #loot.hit #lootList{display:none}
+html.touch #loot footer{display:none}
+html.touch #lootList{max-height:none;flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));align-content:start;gap:4px;padding:4px}
+html.touch .lr{position:relative;display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;min-height:44px;padding:4px 8px 4px 9px;border:0;border-left:3px solid var(--rc,#243236);background:#111b1f}
+html.touch .lr:active{background:#1c2a2f}
+html.touch .lr>div{min-width:0}
+html.touch .lr>.m{display:none}
+html.touch .lr .n{font-size:12.5px;padding-right:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.touch .lr .m{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.touch .lr .sw{position:absolute;top:3px;right:3px;width:auto;height:auto;padding:1px 4px;font-size:9.5px}
+html.touch #lootList .empty{grid-column:1/-1;padding:8px}
 html.touch .sm{padding:8px 12px;font-size:13px}
-@media (orientation:landscape){html.touch #loot{max-height:calc(100% - 16px);width:min(360px,calc(100% - 440px))}}
+/* 横屏的面板压在角色南边，限高到一行半（露出半行提示还能往下翻），背包格数左上面板已有 */
+html.land.touch #loot{top:auto;bottom:calc(10px + var(--sa-b));left:calc(max(180px,26%) + var(--sa-l));right:calc(214px + var(--sa-r));transform:none;width:auto;max-width:440px;margin-inline:auto;max-height:min(116px,calc(50% - 46px - var(--sa-b)))}
+html.land.touch #loot header small{display:none}
 
 /* ---------- phone lobby ---------- */
 .tabs{display:none}
@@ -211,7 +243,7 @@ html.touch .sm{padding:8px 12px;font-size:13px}
 .mobile [data-pane]{display:none}
 .mobile [data-pane].show{display:flex}
 .mobile details[data-pane].show{display:block}
-.mobile #lobby{padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(96px + env(safe-area-inset-bottom,0px))}
+.mobile #lobby{padding-block:calc(12px + var(--sa-t)) calc(96px + var(--sa-b))}
 .mobile .wrap{gap:12px}
 .mobile .top{padding-block:0 10px;align-items:center}
 .mobile .logo{font-size:32px}
@@ -220,7 +252,7 @@ html.touch .sm{padding:8px 12px;font-size:13px}
 .mobile .wallet .stats{display:none}
 .mobile .card{padding:12px}
 .mobile .stash{max-height:none}
-.mobile .deploy{position:fixed;left:0;right:0;bottom:0;z-index:11;background:rgba(9,14,16,.97);border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));grid-template-columns:1fr 1fr auto;gap:8px}
+.mobile .deploy{position:fixed;left:0;right:0;bottom:0;z-index:11;background:rgba(9,14,16,.97);border-top:1px solid var(--line);padding:10px max(16px,var(--sa-r)) calc(10px + var(--sa-b)) max(16px,var(--sa-l));grid-template-columns:1fr 1fr auto;gap:8px}
 .mobile .mode{padding:7px 10px;gap:2px}
 .mobile .mode b{font-size:16px}
 .mobile .mode span:not(.req){display:none}
@@ -229,27 +261,29 @@ html.touch .sm{padding:8px 12px;font-size:13px}
 .mobile .primary small{font-size:10px}
 .fs{display:none}
 .mobile .fs{display:inline-block}
+html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局有（platform/orient.js 只在手机版转屏） */
+#orientOpts .linkbtn.on{color:var(--amber);text-decoration:none}
 .mobile .mode .long{display:none}
-.mobile #toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}
+.mobile #toast{top:calc(12px + var(--sa-t));bottom:auto}
 </style>
 </head>
 <body>
 <!-- 页面结构（两个平台共用）。<head>、样式和脚本由 web/build.mjs 注入。 -->
 <canvas id="game" aria-label="游戏画面"></canvas>
-<div id="safeProbe" aria-hidden="true" style="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)"></div>
+<div id="safeProbe" aria-hidden="true" style="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:var(--sa-t) var(--sa-r) var(--sa-b) var(--sa-l)"></div>
 
 <div id="lobby" class="overlay">
  <div class="wrap">
   <header class="top">
    <div><div class="logo">暗礁<em>行动</em></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
-   <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
+   <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button><button class="btn mo" id="orientBtn" style="padding:2px 8px;font-size:11px;margin-left:6px">转横屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
   </header>
   <section class="status" aria-label="我的代号与行动次数">
-   <div class="who"><span class="lbl">代号</span><b id="myName">未设置</b><button class="linkbtn" id="renameBtn">改名</button></div>
+   <div class="who"><span class="lbl">代号</span><b id="myName"></b><button class="linkbtn" id="renameBtn">改名</button></div>
    <div class="plays" id="playsInfo"></div>
-   <div class="tools"><button class="btn" id="inviteBtn">邀请好友</button><button class="btn" id="passBtn">设备码 / 口令</button></div>
+   <div class="tools"><button class="btn" id="inviteBtn">邀请好友</button><button class="btn" id="passBtn">口令 / 链接</button></div>
   </section>
-  <nav class="tabs" aria-label="大厅分页"><button data-tab="gear" class="on">配装</button><button data-tab="stash">仓库</button><button data-tab="rank">排行</button><button data-tab="help">玩法</button></nav>
+  <nav class="tabs" aria-label="大厅分页"><button data-tab="gear" class="on">配装</button><button data-tab="stash">仓库</button><button data-tab="rank">战绩</button><button data-tab="help">玩法</button></nav>
   <section class="deploy">
    <button class="mode" data-mode="n" id="modeN"><b><span class="long">港区 · </span>常规</b><span>巡逻散兵为主，适合熟悉地形。限时 10 分钟。</span><span class="req">无入场要求</span></button>
    <button class="mode" data-mode="x" id="modeX"><b><span class="long">港区 · </span>机密</b><span>雇佣兵守卫各区，首领「铁锚」坐镇行政大楼，高价值物资翻倍。限时 12 分钟。</span><span class="req" id="reqX">入场配装价值 ≥ ¥60,000</span></button>
@@ -267,32 +301,31 @@ html.touch .sm{padding:8px 12px;font-size:13px}
     <div id="stash" class="stash"></div>
    </section>
    <section class="card" data-pane="rank" id="rankCard">
-    <h2>本周好友榜 <small id="weekInfo"></small></h2>
-    <div class="board" id="board"></div>
-    <div class="tools"><button class="btn" id="shareScoreBtn">分享我的战绩</button><button class="btn" id="pasteBtn2">添加好友战绩</button></div>
-    <p class="note">好友榜不经过服务器：大家把「战绩链接」发到群里，互相打开就会出现在各自的榜上。每周一 04:00 开新的一周，每人只算本周最好 5 局。</p>
-    <div class="lbl">我的最近战绩</div>
+    <h2>最近战绩 <small id="weekInfo"></small></h2>
+    <div class="tools"><button class="btn" id="shareLastBtn" hidden>分享上一局战绩图</button></div>
     <div id="myRaids"></div>
    </section>
   </div>
   <details class="help" open data-pane="help">
    <summary>操作与规则</summary>
-   <p><kbd>WASD</kbd> 移动 · <kbd>鼠标</kbd> 瞄准 / 左键射击 · <kbd>Shift</kbd> 冲刺 · <kbd>R</kbd> 换弹 · <kbd>F</kbd> 搜索 / 再按全部拾取 · <kbd>H</kbd> 治疗 · <kbd>Tab</kbd> 背包 · <kbd>M</kbd> 地图 · <kbd>Esc</kbd> 暂停。触屏：左半屏任意位置拖动移动，推到底自动奔跑；按住右下角开火键会自动瞄准视野内最近的敌人，按住后拖动可手动指定方向。</p>
+   <p class="kb"><kbd>WASD</kbd> 移动 · <kbd>鼠标</kbd> 瞄准 / 左键射击 · <kbd>Shift</kbd> 冲刺 · <kbd>R</kbd> 换弹 · <kbd>F</kbd> 搜索 / 再按全部拾取 · <kbd>H</kbd> 治疗 · <kbd>Tab</kbd> 背包 · <kbd>M</kbd> 地图 · <kbd>Esc</kbd> 暂停。</p>
+   <p class="tc">左半屏任意位置拖动移动，推到底自动奔跑；按住右下角开火键会自动瞄准视野内最近的敌人，按住后拖动可手动指定方向。靠近容器点「搜索」打开，再点一次全部拾取；「换弹」「治疗」在开火键旁边，「背包」「地图」「暂停」在上方。</p>
    <p>搜索容器会逐件揭示物品，品质越高揭示越慢。在时限内抵达本局开放的撤离点并停留 6 秒即撤离成功，带出的物资进入仓库。阵亡则失去全部配装和背包，只有 2 格安全箱里的东西能保住。开火声会引来附近敌人。</p>
    <p>当前是<b id="uiNow"></b>界面（按设备自动选择）。<button class="linkbtn" id="uiSwitch"></button></p>
+   <p class="mo">画面方向：<span id="orientOpts"><button class="linkbtn" data-orient="auto">跟随手机</button> · <button class="linkbtn" data-orient="land">横屏</button> · <button class="linkbtn" data-orient="port">竖屏</button></span>。选的方向和手机拿的方向不一样时，整个画面会转过来，手机锁了自动旋转也能横着玩。</p>
   </details>
  </div>
 </div>
 
 <div id="loot" hidden>
- <header><span id="lootTitle">容器</span><small id="lootCap"></small></header>
+ <header><span id="lootTitle">容器</span><small id="lootCap"></small><button class="x" id="lootX" aria-label="关闭">✕</button></header>
  <div id="lootList"></div>
  <footer><span class="m" id="lootHint">点击物品拾取</span><div class="tools"><button class="sm" id="takeAll">全部拾取 F</button><button class="sm" id="lootClose">关闭</button></div></footer>
 </div>
 
 <div id="inv" class="overlay" hidden>
  <div class="box">
-  <header><span>背包与装备</span><button class="sm" id="invClose">关闭 Tab</button></header>
+  <header><span>背包与装备<small class="ps"> · 对局已暂停</small></span><button class="sm" id="invClose">关闭 Tab</button></header>
   <div class="cols">
    <div class="sec"><div class="lbl" id="bagLbl">背包</div><div class="cap"><b id="bagCap"></b></div><div id="bagList"></div></div>
    <div class="sec"><div class="lbl" id="safeLbl">安全箱 · 阵亡保留</div><div class="cap"><b id="safeCap"></b></div><div id="safeList"></div>
@@ -304,7 +337,7 @@ html.touch .sm{padding:8px 12px;font-size:13px}
 <div id="pause" class="overlay center" hidden>
  <div class="sbox"><div class="res">行动暂停</div>
   <p class="resSub">放弃行动视同阵亡：除安全箱外，带入的配装和拾取的物资全部丢失。</p>
-  <div class="tools"><button class="primary" id="resumeBtn">继续行动</button><button class="btn warn" id="quitBtn">放弃行动</button></div></div>
+  <div class="tools"><button class="primary" id="resumeBtn">继续行动</button><button class="btn mo" id="orientBtnP">切换到横屏</button><button class="btn warn" id="quitBtn">放弃行动</button></div></div>
 </div>
 
 <div id="summary" class="overlay center" hidden>
@@ -927,8 +960,8 @@ const __m=[];
 /* ---- core/rng.js ---- */
 __m[0]=(function(){
 /* ================= 随机数（可设种子，mulberry32） =================
- 核心里的随机都从这里取：同一个种子 + 同样的操作 → 同一张地图、同一批物资、同一局结果。
- 这让测试可以复现，也是第二期「服务器按种子复算本局物资」的前提（见 docs/DESIGN.md §8）。 */
+ 核心里的随机都从这里取：同一个种子 + 同样的操作与逐帧 dt → 同一张地图、同一批物资、同一局结果。
+ 这让测试可以复现，也是第二期「服务器按种子复算本局物资」的前提（见 docs/product/roadmap.md）。 */
 function createRng(seed){
  let s=seed>>>0;
  const random=()=>{s=s+0x6D2B79F5>>>0;let t=s;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};
@@ -1370,9 +1403,10 @@ function createRaid({mode,loadout,rng,diff=1}){
  msg(`撤离点：${G.ext.map(x=>x.n).join('、')}`,'#4fc3b8',6);
 
  /* ================= update ================= */
- // 返回 true 表示这一帧对局有推进（画面特效跟着计时）；暂停时返回 false
+ // 返回 true 表示这一帧对局有推进（画面特效跟着计时）；暂停时返回 false。
+ // ctl.invPause：这种操作方式开着背包时对局等着（手机上背包盖住了摇杆和按键，没法边整理边躲）
  function update(dt,ctl){
-  if(G.paused)return false;
+  if(G.paused||(G.invOpen&&ctl.invPause))return false;
   G.t+=dt;
   if(G.over){updBullets(dt);updVis();return true;}
   G.time-=dt;
@@ -1580,10 +1614,10 @@ function createRaid({mode,loadout,rng,diff=1}){
    if(it.sp==='ammo'){const n=Math.round(pl.w.mag*rnd(1,2));pl.ammo+=n;msg(`弹药 +${n}`,'#4fc3b8',2);}
    else{pl.meds[it.sp]++;msg(`${MEDS[it.sp].n} +1`,'#4fc3b8',2);}
   }else{
-   if(bagUsed()+iSize(it.id)>pl.cap){if(!quiet)msg('背包空间不足，按 Tab 整理或丢弃','#e5484d',2.5);return false;}
+   if(bagUsed()+iSize(it.id)>pl.cap){if(!quiet)msg('背包空间不足，打开背包整理或丢弃','#e5484d',2.5);return false;}
    pl.bag.push(it.id);
   }
-  c.items.splice(idx,1);if(!quiet)emit('take');G.lootVer++;return true;
+  c.items.splice(idx,1);if(!quiet)emit('take');G.lootVer++;if(G.lootC===c&&!c.items.length)closeLoot();return true;
  }
  function takeAll(){
   const c=G.lootC;if(!c)return;
@@ -1592,12 +1626,14 @@ function createRaid({mode,loadout,rng,diff=1}){
   for(const o of order){const it=o.it;if(it.id&&bagUsed()+iSize(it.id)>pl.cap){full=true;continue;}
    if(it.sp){if(it.sp==='ammo')pl.ammo+=Math.round(pl.w.mag*rnd(1,2));else pl.meds[it.sp]++;}else pl.bag.push(it.id);rm.push(it);took++;}
   c.items=c.items.filter(it=>!rm.includes(it));
-  if(took)emit('take');if(full)msg('背包已满，部分物品未拾取','#e5484d',2.5);G.lootVer++;
+  if(took)emit('take');if(full)msg('背包已满，部分物品未拾取','#e5484d',2.5);G.lootVer++;if(!c.items.length)closeLoot();
  }
+ // 面板里还有东西：全部拾取；面板空了（打开的是搜空的容器）：换到旁边另一个容器，没有就关掉
  function interact(){
   if(G.over||pl.dead)return;
-  if(G.lootC){takeAll();return;}
-  if(G.near)openLoot(G.near);
+  const c=G.lootC;
+  if(c&&c.items.length){takeAll();return;}
+  if(G.near&&G.near!==c)openLoot(G.near);else if(c)closeLoot();
  }
  function toggleInv(v){
   if(G.over&&v!==false)return;
@@ -1628,7 +1664,7 @@ function createRaid({mode,loadout,rng,diff=1}){
  }
 
  /* ================= commands ================= */
- // Esc / 暂停键：依次关地图、背包、搜索面板；都没开就暂停或继续。返回做了什么
+ // Esc：依次关地图、背包、搜索面板；都没开就暂停或继续。返回做了什么
  function back(){
   if(G.bigMap){G.bigMap=false;return 'map';}
   if(G.invOpen){toggleInv(false);return 'inv';}
@@ -1639,6 +1675,7 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(G.over)return;
   if(c==='inv'){toggleInv();return 'inv';}
   if(c==='back')return back();
+  if(c==='pause'){G.paused=!G.paused;return G.paused?'pause':'resume';}   // 手机的「暂停」键：开着面板也直接暂停，面板留在暂停层下面
   if(G.paused)return;
   if(c==='interact')interact();else if(c==='reload')startReload(pl);else if(c==='heal')startHeal();else if(c==='map')G.bigMap=!G.bigMap;
   return c;
@@ -1656,18 +1693,21 @@ return Object.freeze({VIS_R,createRaid});
 __m[5]=(function(){
 /* ================= 存档：资金、仓库、配装、战绩统计 =================
  规则在这里（买装备、带药、卖物资、对局结算）；读写本机存储由外层注入 store：{load() → 对象或 null, save(对象)}。 */
-const {ITEMS,MEDS,MODES,gearPrice,iVal}=__m[2];
+const {ITEMS,MEDS,MODES,WEAPONS,ARMORS,HELMETS,BAGS,gearPrice,iVal}=__m[2];
 
 const SAVE_KEY='reef-ops-save-v1';
 function newSave(){return{money:150000,stash:['watch','gpu','coffee','screw','radio','manifest'],
  owned:{smg:1,a2:1,h2:1,b1:1},equip:{w:'smg',a:'a2',h:'h2',b:'b1'},meds:{band:3,kit:1},
  stats:{raids:0,ext:0,kills:0,best:0},mode:'n'};}
+const SLOTS={w:WEAPONS,a:ARMORS,h:HELMETS,b:BAGS};
 function kitValue(S){const e=S.equip;return gearPrice(e.w)+gearPrice(e.a)+gearPrice(e.h)+gearPrice(e.b)+S.meds.band*MEDS.band.price+S.meds.kit*MEDS.kit.price;}
 
 function createProfile(store){
  let S=newSave();
  const persist=()=>store.save(S);
  const owns=id=>gearPrice(id)===0||(S.owned[id]||0)>0;
+ // 这一栏丢了装备后换上什么：仓库里还有的同类里最贵的一件，一件都没有才用免费的
+ const bestOwned=k=>{let best=k==='w'?'p9':'none';for(const id in SLOTS[k])if((S.owned[id]||0)>0&&gearPrice(id)>gearPrice(best))best=id;return best;};
  return{
   get save(){return S;},
   get mode(){return S.mode==='x'?'x':'n';},
@@ -1701,7 +1741,7 @@ function createProfile(store){
   settle(r){
    S.stats.raids++;S.stats.kills+=r.kills;
    if(r.ok){S.stats.ext++;S.meds.band=r.meds.band;S.meds.kit=r.meds.kit;}
-   else{for(const k of ['w','a','h','b']){const id=S.equip[k];if(gearPrice(id)>0){S.owned[id]=Math.max(0,(S.owned[id]||0)-1);if(!S.owned[id])S.equip[k]=k==='w'?'p9':'none';}}S.meds.band=0;S.meds.kit=0;}
+   else{for(const k of ['w','a','h','b']){const id=S.equip[k];if(gearPrice(id)>0){S.owned[id]=Math.max(0,(S.owned[id]||0)-1);if(!S.owned[id])S.equip[k]=bestOwned(k);}}S.meds.band=0;S.meds.kit=0;}
    S.stash.push(...r.items);S.stats.best=Math.max(S.stats.best,r.value);persist();
   }
  };
@@ -1711,9 +1751,9 @@ return Object.freeze({SAVE_KEY,newSave,kitValue,createProfile});
 })();
 /* ---- core/meta.js ---- */
 __m[6]=(function(){
-/* ================= 第一期：设备码 · 代号 · 行动次数 · 无限次口令 · 邀请回执 · 积分与好友榜 =================
-   零后端：所有数据只存在本机。
-   身份 = 设备码：首次打开时随机生成的 80 位编号（不采集任何设备信息），代号只是显示名，可以重名。
+/* ================= 第一期：设备码 · 代号 · 行动次数 · 无限次口令 · 邀请回执 · 积分 =================
+   零后端：所有数据只存在本机，没有排行榜；战绩靠玩家把战绩图发到群里比（view/share-card.js）。
+   身份 = 设备码：首次打开时随机生成的 80 位编号（不采集任何设备信息），代号只是显示名，首次打开随机起一个，可以重名、随时改。
    口令 = 管理员用 Ed25519 私钥对「设备码」的签名；页面里只有公钥，只能核对、算不出口令，也只在那台设备上有效。
    这里只有规则：存储、验签、时钟、随机字节、网址都由外层注入（createMeta）。tools/pass.mjs 签发口令也用这里的格式。 */
 const {pad2}=__m[1];
@@ -1734,6 +1774,9 @@ const didOK=s=>/^[0-9A-HJKMNP-TV-Z]{16}$/.test(s);
 const fmtDid=d=>String(d).replace(/(.{4})(?=.)/g,'$1-');       // K7Q2-M9XW-4DPN-AC8Z
 const didTag=d=>'#'+String(d||'').slice(0,4);
 const nameOK=s=>/^[\p{L}\p{N}_\-·]{2,12}$/u.test(String(s||'').trim());
+// 默认代号：两字 + 两位数，如「夜枭07」。不强制起名，新玩家打开就能玩、就能领邀请礼包
+const NAME_A='灰夜赤铁暗寒孤疾静野霜潮',NAME_B='鲸枭隼鲨狼狐鸦鹰鳐獾蛟鸥';
+const randomName=b=>NAME_A[b[0]%NAME_A.length]+NAME_B[b[1]%NAME_B.length]+pad2(b[2]%100);
 const utf8=s=>new TextEncoder().encode(s),unutf8=b=>new TextDecoder().decode(b);
 function b64uEnc(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function b64uDec(str){str=String(str).replace(/-/g,'+').replace(/_/g,'/');while(str.length%4)str+='=';const bin=atob(str);return Uint8Array.from(bin,c=>c.charCodeAt(0));}
@@ -1758,12 +1801,12 @@ function raidScore(r){
 }
 
 function newMeta(){return{did:'',name:'',created:0,day:'',freeUsed:0,bonus:0,pass:'',invitedBy:'',firstOk:false,receiptKey:'',
- receiptsUsed:[],receiptDay:'',receiptToday:0,invitesOk:0,raids:[],friends:{}};}
+ receiptsUsed:[],receiptDay:'',receiptToday:0,invitesOk:0,raids:[]};}
 
 /* 注入：store {load, save} 本机存储 · now() 当前时间戳 · randomBytes(n) 随机字节 · verify(sig, msg, pubkey) 验签（异步）
         pubkey 口令公钥（base64url；没有则口令功能关闭）· revoked 作废口令的签名前 16 位 · baseURL() 本站网址（生成链接用） */
 function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
- let M=newMeta(),passOk=false,pendingInvite=null;
+ let M=newMeta(),passOk=false;
  const today=()=>dayKey(now());
  const save=()=>store.save(M);
  const rnd36=n=>Array.from(randomBytes(n),b=>(b%36).toString(36)).join('');
@@ -1773,7 +1816,7 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
  function load(){
   const o=store.load();M=Object.assign(newMeta(),o&&typeof o==='object'?o:{});
   if(!didOK(M.did)){M.did=newDeviceId(randomBytes(10));save();}
-  for(const k in M.friends)if(!didOK(k))delete M.friends[k];            // 旧版按代号存的好友记录作废
+  if(!nameOK(M.name)){M.name=randomName(randomBytes(3));if(!M.created)M.created=now();save();}
   if(M.invitedBy&&typeof M.invitedBy!=='object')M.invitedBy='';
   rollDay();
  }
@@ -1797,14 +1840,10 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
  async function refreshPass(){passOk=false;if(M.pass){passOk=(await checkPass(parsePass(M.pass))).ok;}}
 
  /* ---- 代号 ---- */
- // 起代号 / 改代号。首次起名时，如果是通过邀请链接来的，记下邀请人并发受邀礼包。返回是否首次起名
- function setName(v){
-  const first=!M.name;M.name=v;if(first)M.created=now();
-  if(first&&pendingInvite&&pendingInvite.d!==M.did){M.invitedBy=pendingInvite;addBonus(RULES.inviteeBonus);}
-  pendingInvite=null;save();return first;
- }
+ // 改代号（首次打开时 load 已随机起好一个）。不影响口令、次数和邀请关系
+ function setName(v){M.name=v;save();}
 
- /* ---- 积分与好友榜 ---- */
+ /* ---- 积分 ---- */
  function record(r){
   const t=now(),killPts=killPoints(r.killed);
   const rec={t,wk:weekKey(t),mode:r.mode,ok:r.ok,value:r.value,kills:r.kills,killPts,score:raidScore({ok:r.ok,value:r.value,mode:r.mode,killPts})};
@@ -1816,23 +1855,15 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
   const wk=weekKey(now()),mine=M.raids.filter(r=>r.wk===wk).map(r=>r.score).sort((a,b)=>b-a);
   return{wk,total:mine.slice(0,RULES.weekTop).reduce((s,v)=>s+v,0),count:mine.length,best:M.raids.reduce((m,r)=>Math.max(m,r.score),0)};
  }
- // 本周好友榜：只算本周的战绩，自己也在榜上；stale = 战绩还停在上周的好友数
- function board(){
-  const w=weekStats(),rows=Object.values(M.friends).filter(f=>f.w===w.wk);
-  if(M.name)rows.push({n:M.name,d:M.did,ws:w.total,b:w.best,c:w.count,me:true});
-  rows.sort((a,b)=>b.ws-a.ws||b.b-a.b);
-  return{w,rows,stale:Object.values(M.friends).length-rows.filter(r=>!r.me).length};
- }
-
- /* ---- 链接：邀请 #i= · 回执 #r= · 战绩 #s= · 口令 #p= ---- */
+ /* ---- 链接：邀请 #i= · 回执 #r= · 口令 #p= ---- */
+ // 邀请链接也印在战绩图的二维码里（view/share-card.js）
  const inviteLink=()=>`${baseURL()}#i=${packJSON({n:M.name,d:M.did})}`;
  const receiptLink=()=>`${baseURL()}#r=${packJSON({to:M.invitedBy.d,tn:M.invitedBy.n,from:M.name,fd:M.did,k:M.receiptKey})}`;
- function scoreLink(){const w=weekStats();return`${baseURL()}#s=${packJSON({n:M.name,d:M.did,w:w.wk,ws:w.total,b:w.best,c:w.count,t:now()})}`;}
  // 能给邀请人发回执了：是被邀请来的，且已完成首次撤离
  const receiptReady=()=>!!(M.invitedBy&&M.firstOk&&M.receiptKey);
  // 这一局就是首次撤离成功（结算页提示发回执）
  const firstExtraction=r=>!!(r.ok&&M.invitedBy&&M.receiptKey&&M.raids.filter(x=>x.ok).length===1);
- // 收到口令 / 邀请 / 回执 / 战绩（点开的链接或粘贴的文本）。返回给界面：{text, kind} 提示一句；{name:true} 请玩家起代号（领邀请礼包）
+ // 收到口令 / 邀请 / 回执（点开的链接、扫的码或粘贴的文本）。返回给界面 {text, kind} 提示一句
  async function incoming(text){
   text=String(text||'').trim();if(!text)return null;
   const say=(t,kind)=>({text:t,kind:kind||''});
@@ -1846,8 +1877,11 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
   if((m=/#i=([A-Za-z0-9_-]+)/.exec(text))){
    const o=unpackJSON(m[1]);if(!o||!nameOK(o.n)||!didOK(o.d))return say('邀请链接不完整','bad');
    if(o.d===M.did)return say('这是你自己的邀请链接，发给朋友吧');
-   if(M.name)return say('你已经有代号了，邀请礼包只给新玩家');
-   pendingInvite={n:o.n,d:o.d};return{name:true};
+   if(M.invitedBy)return say(`你已经领过「${M.invitedBy.n}」的邀请礼包了`);
+   // 新玩家 = 还没撤离成功过：之后首次撤离时 record 才会生成回执（见 receiptKey）
+   if(M.firstOk)return say('邀请礼包只给还没撤离成功过的新玩家');
+   M.invitedBy={n:o.n,d:o.d};addBonus(RULES.inviteeBonus);save();
+   return say(`你被「${o.n}」邀请，已到账 ${RULES.inviteeBonus} 次行动`,'ok');
   }
   if((m=/#r=([A-Za-z0-9_-]+)/.exec(text))){
    const o=unpackJSON(m[1]);if(!o||!didOK(o.to)||!didOK(o.fd)||!o.k)return say('回执链接不完整','bad');
@@ -1858,25 +1892,18 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
    M.receiptToday++;M.invitesOk++;addBonus(RULES.inviterBonus);save();
    return say(`「${o.from}」完成了首次撤离，你获得 ${RULES.inviterBonus} 次行动`,'ok');
   }
-  if((m=/#s=([A-Za-z0-9_-]+)/.exec(text))){
-   const o=unpackJSON(m[1]);if(!o||!nameOK(o.n)||!didOK(o.d)||typeof o.ws!=='number')return say('战绩链接不完整','bad');
-   if(o.d===M.did)return say('这是你自己的战绩');
-   const old=M.friends[o.d];                                   // 按设备码区分：同名的两个人各占一行
-   if(!old||old.t<=o.t){M.friends[o.d]={n:String(o.n),d:o.d,w:String(o.w),ws:Math.max(0,o.ws|0),b:Math.max(0,o.b|0),c:Math.max(0,o.c|0),t:+o.t||0};save();}
-   return say(`已把「${o.n}」${didTag(o.d)} 加入好友榜（本周 ${o.ws} 分）`,'ok');
-  }
-  return say('没认出这段内容，支持口令、邀请、回执、战绩链接','bad');
+  return say('没认出这段内容，支持口令、邀请链接、回执链接','bad');
  }
 
  return{
-  get M(){return M;},get passOk(){return passOk;},get pendingInvite(){return pendingInvite;},
-  load,plays,consumePlay,refreshPass,setName,record,weekStats,board,
-  inviteLink,receiptLink,scoreLink,receiptReady,firstExtraction,incoming,
+  get M(){return M;},get passOk(){return passOk;},
+  load,plays,consumePlay,refreshPass,setName,record,weekStats,
+  inviteLink,receiptLink,receiptReady,firstExtraction,incoming,
   passInfo:()=>passOk?parsePass(M.pass):null
  };
 }
 
-return Object.freeze({META_KEY,RULES,dayKey,weekKey,newDeviceId,normDid,didOK,fmtDid,didTag,nameOK,b64uEnc,b64uDec,passMessage,passText,parsePass,killPoints,raidScore,createMeta});
+return Object.freeze({META_KEY,RULES,dayKey,weekKey,newDeviceId,normDid,didOK,fmtDid,didTag,nameOK,randomName,b64uEnc,b64uDec,passMessage,passText,parsePass,killPoints,raidScore,createMeta});
 })();
 /* ---- services/storage.js ---- */
 __m[7]=(function(){
@@ -1946,21 +1973,39 @@ return Object.freeze({verifyEd25519,randomBytes});
 })();
 /* ---- services/device.js ---- */
 __m[10]=(function(){
-/* ================= 设备能力：屏幕常亮、全屏、分享 / 复制、离线（PWA） ================= */
+/* ================= 设备能力：屏幕常亮、全屏、分享 / 复制（文字和图片）、下载、离线（PWA） ================= */
 let wakeLock=null;
 function keepAwake(on){try{if(on&&navigator.wakeLock&&!wakeLock)navigator.wakeLock.request('screen').then(l=>{wakeLock=l;l.addEventListener&&l.addEventListener('release',()=>{wakeLock=null;});}).catch(()=>{});
  else if(!on&&wakeLock){wakeLock.release().catch(()=>{});wakeLock=null;}}catch(_){}}
-// 全屏（多数安卓浏览器可用），进入后尽量锁横屏
+// 锁定屏幕方向 'landscape' / 'portrait'，null 解锁。多数浏览器只在全屏或装成 App 时允许，不行就算了（画面方向由 platform/orient.js 自己转）
+function lockOrientation(kind){try{const o=screen.orientation;if(!o)return;if(kind){if(o.lock)o.lock(kind).catch(()=>{});}else if(o.unlock)o.unlock();}catch(_){}}
+// 全屏（多数安卓浏览器可用），进入后尽量锁定方向 lock（默认横屏）
 const canFullscreen=()=>!!(document.fullscreenEnabled||document.webkitFullscreenEnabled);
-function enterFullscreen(){const el=document.documentElement;try{
+function enterFullscreen(lock){const el=document.documentElement;try{
  const pr=el.requestFullscreen?el.requestFullscreen():el.webkitRequestFullscreen&&el.webkitRequestFullscreen();
- if(pr&&pr.then)pr.then(()=>{try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{});}catch(_){}}).catch(()=>{});}catch(_){}}
+ if(pr&&pr.then)pr.then(()=>lockOrientation(typeof lock==='string'?lock:'landscape')).catch(()=>{});}catch(_){}}
 // 系统分享面板：'ok' 已分享 · 'abort' 用户取消 · 'none' 不支持 · 'fail' 出错
 async function share(data){
  if(!navigator.share)return'none';
  try{await navigator.share(data);return'ok';}catch(e){return e&&e.name==='AbortError'?'abort':'fail';}
 }
 async function copy(text){try{await navigator.clipboard.writeText(text);return true;}catch(_){return false;}}
+/* ---- 图片（战绩图）：要在点击里同步调用，前面不能有 await，否则 iOS 会以「不是用户操作」拒绝 ---- */
+// 能不能把图片文件放进系统分享面板（桌面 Firefox、Linux、安卓内置浏览器等不行）
+function canShareFile(file){try{return!!(navigator.canShare&&navigator.canShare({files:[file]}));}catch(_){return false;}}
+// 只传文件不带文字：带上文字时 iOS 有些目标只收链接不收图。'abort' 取消或连点 · 'none' 不支持 · 'fail' 被拒
+async function shareFile(file){
+ if(!canShareFile(file))return'none';
+ try{await navigator.share({files:[file]});return'ok';}catch(e){return e&&(e.name==='AbortError'||e.name==='InvalidStateError')?'abort':'fail';}
+}
+function canCopyImage(){try{return!!(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write&&(!ClipboardItem.supports||ClipboardItem.supports('image/png')));}catch(_){return false;}}
+// 剪贴板只收 PNG；值传 Promise 是 Safari 要求的写法
+async function copyImage(blob){try{await navigator.clipboard.write([new ClipboardItem({'image/png':Promise.resolve(blob)})]);return true;}catch(_){return false;}}
+// 下载成文件（主屏幕 App、触屏设备上基本没反应，界面只在电脑上显示这个按钮）
+function download(blob,name){
+ const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),10000);
+}
 // 从主屏幕图标打开（装成 App）
 const isStandalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||(window.matchMedia&&matchMedia('(display-mode: fullscreen)').matches)||navigator.standalone===true;
 // 离线缓存：sw.js 由 web/build.mjs 生成
@@ -1968,7 +2013,7 @@ function registerServiceWorker(){
  if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
 }
 
-return Object.freeze({keepAwake,canFullscreen,enterFullscreen,share,copy,isStandalone,registerServiceWorker});
+return Object.freeze({keepAwake,lockOrientation,canFullscreen,enterFullscreen,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker});
 })();
 /* ---- platform/detect.js ---- */
 __m[11]=(function(){
@@ -1987,22 +2032,8 @@ function switchPlatform(p){try{localStorage.setItem('reef-ui',p);}catch(_){}loca
 
 return Object.freeze({PLATFORM,MOBILE,switchPlatform});
 })();
-/* ---- platform/state.js ---- */
-__m[12]=(function(){
-/* ================= 输入状态：两个平台的操作层共享 =================
- 两套操作层都会装上，按最近一次输入自动切换（SCHEME.touch）：摸屏幕就用触屏操作，动鼠标或按键盘就用键鼠操作。 */
-const K=new Set();                                   // 按住的键
-const IN={mx:0,my:0,down:false};                     // 鼠标位置与左键
-const TOUCH={move:{on:false,id:null,ox:0,oy:0,x:0,y:0,raw:0},fb:{on:false,id:null,ox:0,oy:0,x:0,y:0,raw:0}};   // 左手摇杆、开火键
-const SCHEME={touch:false,onChange:null};            // 当前操作方式；onChange 由 platform/index.js 设置
-const isT=e=>e.pointerType==='touch'||e.pointerType==='pen';
-function stick(s,e,rad){let dx=(e.clientX-s.ox)/rad,dy=(e.clientY-s.oy)/rad;const l=Math.hypot(dx,dy);s.raw=l;if(l>1){dx/=l;dy/=l;}s.x=dx;s.y=dy;}
-function setScheme(v,force){if(SCHEME.touch===v&&!force)return;SCHEME.touch=v;if(SCHEME.onChange)SCHEME.onChange(v);}
-
-return Object.freeze({K,IN,TOUCH,SCHEME,isT,stick,setScheme});
-})();
 /* ---- view/canvas.js ---- */
-__m[13]=(function(){
+__m[12]=(function(){
 /* ================= 画布与视口：画面层共享的绘图状态和基础绘图函数 =================
  平台层（HUD、操作）也从这里读屏幕尺寸和镜头位置，用这里的 panel / txt / bar 画面板。 */
 const {clamp}=__m[1];
@@ -2012,7 +2043,7 @@ const cv=document.getElementById('game');
 const ctx=cv.getContext('2d');
 const fc=document.createElement('canvas');        // 战争迷雾
 const fctx=fc.getContext('2d');
-const V={W:0,H:0,dpr:1,Z:1,left:0,top:0};          // 视口：屏幕宽高、像素比、缩放、左上角的世界坐标
+const V={W:0,H:0,dpr:1,Z:1,left:0,top:0,rot:0};    // 视口：屏幕宽高、像素比、缩放、左上角的世界坐标；rot 整页转了多少度（0 / 90 / -90，platform/orient.js 写）
 const SAFE={t:0,r:0,b:0,l:0};                      // 刘海屏 / 圆角屏的安全边距
 const cam={x:0,y:0,lx:0,ly:0};                     // 局内镜头：跟随点；lx/ly 是手机版按移动方向的前瞻
 const LAYERS={ground:null,obs:null,mini:null};     // 静态图层：地面、障碍、小地图（view/render.js 生成）
@@ -2026,7 +2057,7 @@ function readSafe(){const p=document.getElementById('safeProbe');if(!p)return;co
  SAFE.t=parseFloat(cs.paddingTop)||0;SAFE.r=parseFloat(cs.paddingRight)||0;SAFE.b=parseFloat(cs.paddingBottom)||0;SAFE.l=parseFloat(cs.paddingLeft)||0;}
 // 按当前平台的画面参数（像素预算、缩放）重设画布尺寸
 function resize(PF){
- V.W=window.innerWidth;V.H=window.innerHeight;readSafe();V.dpr=Math.min(window.devicePixelRatio||1,2);
+ V.W=V.rot?window.innerHeight:window.innerWidth;V.H=V.rot?window.innerWidth:window.innerHeight;readSafe();   // 整页转了 90° 时宽高对调V.dpr=Math.min(window.devicePixelRatio||1,2);
  const pb=PF.view.pixelBudget;if(V.W*V.H*V.dpr*V.dpr>pb)V.dpr=Math.max(1,Math.sqrt(pb/(V.W*V.H)));
  cv.width=Math.round(V.W*V.dpr);cv.height=Math.round(V.H*V.dpr);fc.width=cv.width;fc.height=cv.height;
  V.Z=PF.view.zoom();
@@ -2043,12 +2074,55 @@ function bar(x,y,w,h,p,col,bg){ctx.fillStyle=bg||'rgba(255,255,255,.08)';ctx.fil
 
 return Object.freeze({cv,ctx,fc,fctx,V,SAFE,cam,LAYERS,F_DISP,F_BODY,F_MONO,MINI_W,MINI_H,resize,resetCamera,toWorld,toScreen,setWorld,panel,txt,bar});
 })();
-/* ---- platform/desktop/hud.js ---- */
+/* ---- platform/orient.js ---- */
+__m[13]=(function(){
+/* ================= 画面方向：跟随手机 / 横屏 / 竖屏（只在手机版布局生效） =================
+ 手机锁了自动旋转、或者 iOS 浏览器根本不让网页锁方向时，也要能按玩家选的方向玩：选的方向和视口方向不一致，就把整页 body 转 90°
+ （styles/base.css 的 html.rot90 / html.rot270），画面层按转过来的尺寸画（view/canvas.js 的 V.rot），触屏和鼠标坐标用 toLogical 换算。
+ <html> 上的 .land / .port 是转过之后的方向，样式里用它代替 @media (orientation)。选择记在本机 reef-orient。 */
+const {V}=__m[12];
+const {MOBILE}=__m[11];
+
+const KEY='reef-orient';
+const ORIENT={pref:'auto'};   // 'auto' 跟随手机 · 'land' 横屏 · 'port' 竖屏
+try{const o=localStorage.getItem(KEY);if(o==='land'||o==='port')ORIENT.pref=o;}catch(_){}
+
+// 按视口和选择决定转不转：写 V.rot、<html> 的类和 --vw / --vh（实际视口的宽高，转屏样式要用），返回转的角度。每次 resize 之前调
+function applyOrient(){
+ const w=innerWidth,h=innerHeight,p=MOBILE?ORIENT.pref:'auto',rot=p==='land'&&h>w?90:p==='port'&&w>h?-90:0;
+ const de=document.documentElement,cl=de.classList,land=rot?h>w:w>h;
+ V.rot=rot;cl.toggle('rot',!!rot);cl.toggle('rot90',rot===90);cl.toggle('rot270',rot===-90);cl.toggle('land',land);cl.toggle('port',!land);
+ de.style.setProperty('--vw',w+'px');de.style.setProperty('--vh',h+'px');return rot;
+}
+function setOrient(p){ORIENT.pref=p==='land'||p==='port'?p:'auto';try{localStorage.setItem(KEY,ORIENT.pref);}catch(_){}return applyOrient();}
+// 指针事件的屏幕坐标 → 转过之后的页面坐标（90：页面顺时针转，竖着的手机要逆时针横过来、顶部朝左看；-90 反过来）
+function toLogical(e){const r=V.rot;return r===90?{x:e.clientY,y:innerWidth-e.clientX}:r===-90?{x:innerHeight-e.clientY,y:e.clientX}:{x:e.clientX,y:e.clientY};}
+
+return Object.freeze({ORIENT,applyOrient,setOrient,toLogical});
+})();
+/* ---- platform/state.js ---- */
 __m[14]=(function(){
+/* ================= 输入状态：两个平台的操作层共享 =================
+ 两套操作层都会装上，按最近一次输入自动切换（SCHEME.touch）：摸屏幕就用触屏操作，动鼠标或按键盘就用键鼠操作。 */
+const {toLogical}=__m[13];
+
+const K=new Set();                                   // 按住的键
+const IN={mx:0,my:0,down:false};                     // 鼠标位置与左键
+const TOUCH={move:{on:false,id:null,ox:0,oy:0,x:0,y:0,raw:0},fb:{on:false,id:null,ox:0,oy:0,x:0,y:0,raw:0}};   // 左手摇杆、开火键
+const SCHEME={touch:false,onChange:null};            // 当前操作方式；onChange 由 platform/index.js 设置
+const isT=e=>e.pointerType==='touch'||e.pointerType==='pen';
+// 摇杆 / 开火键的原点 ox、oy 和这里的指针位置都是转屏之后的页面坐标（orient.js 的 toLogical）
+function stick(s,e,rad){const p=toLogical(e);let dx=(p.x-s.ox)/rad,dy=(p.y-s.oy)/rad;const l=Math.hypot(dx,dy);s.raw=l;if(l>1){dx/=l;dy/=l;}s.x=dx;s.y=dy;}
+function setScheme(v,force){if(SCHEME.touch===v&&!force)return;SCHEME.touch=v;if(SCHEME.onChange)SCHEME.onChange(v);}
+
+return Object.freeze({K,IN,TOUCH,SCHEME,isT,stick,setScheme});
+})();
+/* ---- platform/desktop/hud.js ---- */
+__m[15]=(function(){
 /* ================= 电脑版 HUD：左上计时、顶部背包、左下生命、右下武器、鼠标准星 ================= */
 const {TAU,clamp,fmt,mmss}=__m[1];
-const {ctx,V,F_DISP,F_BODY,F_MONO,MINI_W,panel,txt,bar,toWorld}=__m[13];
-const {IN}=__m[12];
+const {ctx,V,F_DISP,F_BODY,F_MONO,MINI_W,panel,txt,bar,toWorld}=__m[12];
+const {IN}=__m[14];
 
 const HUD_DESKTOP={
  corner(G,m,narrow){
@@ -2058,7 +2132,7 @@ const HUD_DESKTOP={
   txt(G.zone,m+12,m+69,`500 11px ${F_BODY}`,'#82939a');
   txt(`击倒 ${G.kills}`,m+(narrow?156:202),m+54,`600 12px ${F_MONO}`,'#d9e1de','right');
   return m+96;},
- msgX:m=>m+2,miniW:narrow=>narrow?128:MINI_W,safeR:()=>0,safeT:()=>0,
+ msgX:m=>m+2,msgW:()=>1e9,miniW:narrow=>narrow?128:MINI_W,safeR:()=>0,safeT:()=>0,bannerY:()=>V.H*.2,
  top(G,m,narrow){
   if(!narrow){const bv=G.bagValue(),s=`背包 ${G.bagUsed()}/${G.pl.cap} 格 · ${fmt(bv)}`;ctx.font=`600 13px ${F_BODY}`;const tw=ctx.measureText(s).width+28;
    panel(V.W/2-tw/2,m,tw,30);txt(s,V.W/2,m+20,`600 13px ${F_BODY}`,bv>=100000?'#f2c14e':'#d9e1de','center');}},
@@ -2111,10 +2185,11 @@ const VIEW_DESKTOP={
 return Object.freeze({HUD_DESKTOP,VIEW_DESKTOP});
 })();
 /* ---- platform/desktop/input.js ---- */
-__m[15]=(function(){
+__m[16]=(function(){
 /* ================= 电脑版操作：WASD 移动 · 鼠标瞄准射击 · R/F/H/Tab/M/Esc ================= */
-const {K,IN,setScheme}=__m[12];
-const {toWorld}=__m[13];
+const {K,IN,setScheme}=__m[14];
+const {toLogical}=__m[13];
+const {toWorld}=__m[12];
 
 let hooks=null;   // {getRaid, command, unlockAudio}（见 platform/index.js）
 function initDesktopInput(h){
@@ -2131,8 +2206,8 @@ function initDesktopInput(h){
  });
  window.addEventListener('keyup',e=>K.delete(e.key.toLowerCase()));
 }
-function mouseDown(e){setScheme(false);IN.mx=e.clientX;IN.my=e.clientY;if(e.button===0){IN.down=true;hooks.unlockAudio();}}
-function mouseMove(e){IN.mx=e.clientX;IN.my=e.clientY;}
+function mouseDown(e){setScheme(false);const p=toLogical(e);IN.mx=p.x;IN.my=p.y;if(e.button===0){IN.down=true;hooks.unlockAudio();}}
+function mouseMove(e){const p=toLogical(e);IN.mx=p.x;IN.my=p.y;}
 function mouseUp(e){if(e.button===0)IN.down=false;}
 function releaseKeys(){K.clear();IN.down=false;}
 /* 操作意图：WASD 移动、Shift 奔跑、鼠标指哪打哪（半自动武器需逐发点击） */
@@ -2146,18 +2221,18 @@ const CONTROL_DESKTOP={
 return Object.freeze({initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys,CONTROL_DESKTOP});
 })();
 /* ---- platform/desktop/index.js ---- */
-__m[16]=(function(){
+__m[17]=(function(){
 /* ================= 电脑版平台对象：键鼠操作 + 电脑版 HUD 与画面参数 =================
- 平台对象的接口见 docs/ARCHITECTURE.md「平台层」：touch · control · hud · view · raidStart(say) · hurt()。 */
-const {HUD_DESKTOP,VIEW_DESKTOP}=__m[14];
-const {CONTROL_DESKTOP}=__m[15];
+ 平台对象的接口见 docs/architecture/platform.md：touch · control · hud · view · raidStart(say) · hurt()。 */
+const {HUD_DESKTOP,VIEW_DESKTOP}=__m[15];
+const {CONTROL_DESKTOP}=__m[16];
 
 const PF_DESKTOP={touch:false,hud:HUD_DESKTOP,view:VIEW_DESKTOP,control:CONTROL_DESKTOP,raidStart(){},hurt(){}};
 
 return Object.freeze({PF_DESKTOP});
 })();
 /* ---- view/dom.js ---- */
-__m[17]=(function(){
+__m[18]=(function(){
 /* ================= DOM 小工具：取元素、转义、提示条、二次确认 ================= */
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2174,19 +2249,20 @@ function armConfirm(btn,label,action){
 return Object.freeze({$,esc,toast,armConfirm});
 })();
 /* ---- platform/mobile/input.js ---- */
-__m[18]=(function(){
+__m[19]=(function(){
 /* ================= 手机版操作：左半屏浮动摇杆 · 右下开火键（自动瞄准，拖动指定方向） · 换弹/治疗/搜索 ================= */
 const {clamp,angDiff}=__m[1];
-const {cv,V,cam}=__m[13];
-const {$}=__m[17];
-const {TOUCH,SCHEME,isT,stick,setScheme}=__m[12];
+const {cv,V,cam}=__m[12];
+const {$}=__m[18];
+const {TOUCH,SCHEME,isT,stick,setScheme}=__m[14];
+const {toLogical}=__m[13];
 
 const AIM={p:null,lock:null,hold:0};   // 自动瞄准：锁定的敌人；松开开火键后朝向再保持 hold 秒
-const KEYS={esc:'back',tab:'inv',f:'interact',r:'reload',h:'heal',m:'map'};   // 触屏按钮 data-k → 玩家命令
+const KEYS={esc:'pause',tab:'inv',f:'interact',r:'reload',h:'heal',m:'map'};   // 触屏按钮 data-k → 玩家命令（「暂停」直接暂停，不像 Esc 先关面板）
 let hooks=null,fireBtn=null;
 function touchCanvasDown(e){
- setScheme(true);e.preventDefault();const s=TOUCH.move;if(s.on||e.clientX>V.W*.55)return;
- Object.assign(s,{on:true,id:e.pointerId,ox:e.clientX,oy:e.clientY,x:0,y:0,raw:0});try{cv.setPointerCapture(e.pointerId);}catch(_){}
+ setScheme(true);e.preventDefault();const s=TOUCH.move,p=toLogical(e);if(s.on||p.x>V.W*.55)return;
+ Object.assign(s,{on:true,id:e.pointerId,ox:p.x,oy:p.y,x:0,y:0,raw:0});try{cv.setPointerCapture(e.pointerId);}catch(_){}
 }
 function touchMove(e){
  if(TOUCH.fb.on&&TOUCH.fb.id===e.pointerId)stick(TOUCH.fb,e,60);
@@ -2201,7 +2277,7 @@ function initMobileInput(h){
  hooks=h;fireBtn=$('fireBtn');
  fireBtn.addEventListener('pointerdown',e=>{
   e.preventDefault();e.stopPropagation();hooks.unlockAudio();const G=hooks.getRaid();if(!G||G.over||G.paused)return;setScheme(true);
-  Object.assign(TOUCH.fb,{on:true,id:e.pointerId,ox:e.clientX,oy:e.clientY,x:0,y:0,raw:0});
+  const p=toLogical(e);Object.assign(TOUCH.fb,{on:true,id:e.pointerId,ox:p.x,oy:p.y,x:0,y:0,raw:0});
   try{fireBtn.setPointerCapture(e.pointerId);}catch(_){}fireBtn.classList.add('on');
  });
  fireBtn.addEventListener('contextmenu',e=>e.preventDefault());
@@ -2223,15 +2299,16 @@ function syncTouchUI(G){
  if(G!==tuiRaid){tuiRaid=G;tuiKey='';}
  const p=G.pl;
  const big=p.reload>0?'换弹':p.heal?'治疗':String(p.mag),sub=p.reload>0||p.heal?'':'/'+p.ammo;
- const near=!!(G.near&&!G.lootC&&(!G.near.opened||G.near.items.length)),fl=G.lootC?'全部<br>拾取':'搜索';
- const key=[big,sub,near,fl,p.meds.band,p.meds.kit,p.mag===0,!!G.lootC].join('|');if(key===tuiKey)return;tuiKey=key;
+ // 面板里还有东西时「搜索」键是全部拾取；面板空了它会换到旁边另一个容器（core/raid.js interact）
+ const lc=G.lootC,left=!!(lc&&lc.items.length),near=!!(G.near&&G.near!==lc&&(!G.near.opened||G.near.items.length)),fl=left?'全部<br>拾取':'搜索';
+ const key=[big,sub,near,fl,p.meds.band,p.meds.kit,p.mag===0,left].join('|');if(key===tuiKey)return;tuiKey=key;
  fireBtn.innerHTML=`<b>${big}</b><small>${sub}</small>`;fireBtn.classList.toggle('empty',p.mag===0&&p.reload<=0);
- $('actF').innerHTML=fl;$('actF').classList.toggle('hot',near||!!G.lootC);
+ $('actF').innerHTML=fl;$('actF').classList.toggle('hot',near||left);
  $('actH').innerHTML=`治疗<small>绷${p.meds.band} 包${p.meds.kit}</small>`;
 }
 
-/* 操作意图：摇杆移动、推到底奔跑（按住开火时不跑）、开火键自动瞄准 */
-const CONTROL_MOBILE={
+/* 操作意图：摇杆移动、推到底奔跑（按住开火时不跑）、开火键自动瞄准；开着背包时对局暂停（invPause，见 core/raid.js update） */
+const CONTROL_MOBILE={invPause:true,
  read(){const m=TOUCH.move;return{mx:m.on?m.x:0,my:m.on?m.y:0,sprint:m.on&&m.raw>1.35&&!TOUCH.fb.on,fire:TOUCH.fb.on,autoSemi:true};},
  aim(G,dt,moving,mx,my){
   // twin-stick aim: the fire button snaps straight onto the locked target (or the dragged direction);
@@ -2248,17 +2325,20 @@ const CONTROL_MOBILE={
   return moving&&AIM.hold<=0?p.a+clamp(angDiff(Math.atan2(my,mx),p.a),-10*dt,10*dt):p.a;
  }
 };
-// auto-aim target: only enemies actually on screen and in range; prefers what you're facing / dragging toward,
+// auto-aim target: enemies on screen and in range, plus off-screen ones that are already fighting you
+// (手机视野比敌人的视距窄，竖屏左右只看得到约 290 单位，敌人 560–680 就会开火；屏幕边上有红箭头标着它们)；
+// prefers on-screen targets and what you're facing / dragging toward,
 // and keeps the current lock unless another target is clearly better (no flip-flopping between two enemies)
 function pickTarget(G,p,dirA){
  const hw=V.W/V.Z/2-8,hh=V.H/V.Z/2-8,ref=dirA!==null?dirA:p.a;let best=null,bs=1e9,cs=1e9;
  for(const e of G.enemies){
   if(e.dead||!e.vis)continue;
-  if(Math.abs(e.x-cam.x)>hw||Math.abs(e.y-cam.y)>hh)continue;
+  const out=Math.abs(e.x-cam.x)>hw||Math.abs(e.y-cam.y)>hh;
+  if(out&&e.state!=='combat')continue;
   const dx=e.x-p.x,dy=e.y-p.y,d=Math.hypot(dx,dy);if(d>p.w.rng)continue;
   const off=Math.abs(angDiff(Math.atan2(dy,dx),ref));
   if(dirA!==null&&off>.45)continue;
-  const sc=d+off*(dirA!==null?600:140);
+  const sc=d+off*(dirA!==null?600:140)+(out?250:0);
   if(sc<bs){bs=sc;best=e;}if(e===AIM.lock)cs=sc;
  }
  if(AIM.lock&&cs<1e9&&best!==AIM.lock&&bs>cs*.7)return AIM.lock;
@@ -2268,20 +2348,31 @@ function pickTarget(G,p,dirA){
 return Object.freeze({AIM,touchCanvasDown,touchMove,touchUp,releaseTouch,initMobileInput,showTouchControls,resetTouchUI,syncTouchUI,CONTROL_MOBILE});
 })();
 /* ---- platform/mobile/hud.js ---- */
-__m[19]=(function(){
+__m[20]=(function(){
 /* ================= 手机版 HUD：左上合并面板（计时+生命+护甲+背包）、摇杆提示、避开右下按键区 ================= */
 const {TAU,clamp,fmtK,mmss}=__m[1];
-const {ctx,V,SAFE,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[13];
-const {TOUCH}=__m[12];
-const {AIM}=__m[18];
+const {ctx,V,SAFE,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
+const {TOUCH}=__m[14];
+const {AIM}=__m[19];
 
 const HUD_MOBILE={
  corner(G,m){drawTouchPanel(G,m+SAFE.l,m+SAFE.t);return m+SAFE.t+130;},
  msgX:m=>m+2+SAFE.l,miniW:()=>120,safeR:()=>SAFE.r,safeT:()=>SAFE.t,
+ // 消息宽度：竖屏停在顶部按键左边；横屏别伸到角色（中线左 70px）那边
+ msgW:m=>V.H>V.W?V.W-SAFE.r-178-(m+2+SAFE.l):Math.min(260,V.W*.34),
+ // 区域横幅：竖屏放到顶部按键下面，横屏放到左上面板和顶部按键之间的下沿
+ bannerY:()=>V.H>V.W?Math.max(V.H*.2,SAFE.t+246):SAFE.t+100,
  top(){},bottom(){},
- promptY:()=>Math.min(V.H*.64,V.H-150),interactHint:'点「搜索」',
- markerPad:sn=>sn<0?(V.H>V.W?150:36):(V.H>V.W?210:36),
- avoid:(x,y)=>x>V.W-260-SAFE.r&&y>V.H-260-SAFE.b?V.H-260-SAFE.b:y,
+ promptY:()=>Math.min(V.H*.64,V.H-150),interactHint:'',
+ markerPad:sn=>sn<0?(V.H>V.W?SAFE.t+178:36):(V.H>V.W?210:36),
+ // 边缘箭头（撤离点、屏幕外的敌人）不压在左上面板、小地图、顶部按键和右下按键区上：挪到它们下面 / 上面
+ avoid(x,y){const {W,H}=V,cw=Math.min(196,W*.5-24);
+  if(H>W){if(x>W-260-SAFE.r&&y>H-260-SAFE.b)return H-260-SAFE.b;
+   return y<SAFE.t+178&&(x<SAFE.l+cw+30||x>W-176-SAFE.r)?SAFE.t+178:y;}
+  if(x>W-230-SAFE.r&&y>H-214-SAFE.b)return H-214-SAFE.b;
+  if(x<SAFE.l+cw+30&&y<SAFE.t+146)return SAFE.t+146;
+  return x>W-314-SAFE.r&&y<SAFE.t+120?SAFE.t+120:y;
+ },
  aim(G){
   const {W,H}=V;
   if(!G.pl.dead){const s=TOUCH.move,ox=s.on?s.ox:Math.max(96+SAFE.l,W*.12),oy=s.on?s.oy:H-(H>W?150:110)-SAFE.b;
@@ -2289,15 +2380,21 @@ const HUD_MOBILE={
   if(s.on&&s.raw>1.3){ctx.strokeStyle='rgba(240,164,58,.6)';ctx.beginPath();ctx.arc(ox,oy,72,0,TAU);ctx.stroke();}
   ctx.fillStyle=s.on?'rgba(217,225,222,.32)':'rgba(217,225,222,.1)';ctx.beginPath();ctx.arc(ox+s.x*55,oy+s.y*55,22,0,TAU);ctx.fill();
   if(!s.on)txt('拖动移动',ox,oy+4,`600 11px ${F_BODY}`,'rgba(217,225,222,.35)','center');}
+  // 自动瞄准锁定了屏幕外的敌人：在它那支红色边缘箭头（view/hud.js）外面套一个橙圈，告诉玩家开火键会打向那边
+  const lk=AIM.lock;if(!G.pl.dead&&lk&&!lk.dead&&lk.vis){const sp=toScreen(lk.x,lk.y);if(sp.x<0||sp.x>W||sp.y<0||sp.y>H){
+   const a=Math.atan2(sp.y-H/2,sp.x-W/2),r=Math.min((W/2-18-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-18)/Math.abs(Math.sin(a)||1e-6));
+   ctx.strokeStyle=TOUCH.fb.on?'#f0a43a':'rgba(240,164,58,.55)';ctx.lineWidth=2.5;const ex=W/2+Math.cos(a)*r;ctx.beginPath();ctx.arc(ex,HUD_MOBILE.avoid(ex,H/2+Math.sin(a)*r),15,0,TAU);ctx.stroke();}}
  },
  hitPos(G,ps){const pl=G.pl,lk=AIM.lock&&!AIM.lock.dead?toScreen(AIM.lock.x,AIM.lock.y):null;return lk||{x:ps.x+Math.cos(pl.a)*120,y:ps.y+Math.sin(pl.a)*120};}
 };
+// 放不下就截短加「…」（320 宽时左上面板只有 136px，计时和区域名会撞在一起）
+function fit(s,max,font){ctx.font=font;if(ctx.measureText(s).width<=max)return s;while(s.length>1&&ctx.measureText(s+'…').width>max)s=s.slice(0,-1);return s+'…';}
 function drawTouchPanel(G,x,y){
  const w=Math.min(196,V.W*.5-24),h=116,p=G.pl,hp=Math.ceil(p.hp);panel(x,y,w,h);
  txt(G.mode==='x'?'机密行动':'常规行动',x+10,y+16,`600 10.5px ${F_BODY}`,'#82939a');
  txt(`击倒 ${G.kills}`,x+w-10,y+16,`600 10.5px ${F_MONO}`,'#d9e1de','right');
  txt(mmss(G.time),x+10,y+44,`700 28px ${F_DISP}`,G.time<60?'#e5484d':G.time<180?'#f0a43a':'#d9e1de');
- txt(G.zone,x+w-10,y+42,`600 11px ${F_BODY}`,'#82939a','right');
+ ctx.font=`700 28px ${F_DISP}`;const zf=`600 11px ${F_BODY}`;txt(fit(G.zone,w-28-ctx.measureText(mmss(G.time)).width,zf),x+w-10,y+42,zf,'#82939a','right');
  bar(x+10,y+54,w-44,7,p.hp/p.maxhp,hp<35?'#e5484d':'#d9e1de');txt(String(hp),x+w-10,y+62,`700 13px ${F_MONO}`,hp<35?'#e5484d':'#d9e1de','right');
  const hw=(w-26)/2,ar=p.armor,he=p.helmet;
  txt(ar.lvl?`甲${ar.lvl} ${Math.ceil(ar.cur)}`:'无护甲',x+10,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');bar(x+10,y+83,hw,3,ar.lvl?ar.cur/ar.dur:0,'#4f95e6');
@@ -2305,11 +2402,12 @@ function drawTouchPanel(G,x,y){
  bar(x+10,y+91,w-20,2,p.stam/100,'#f0a43a');
  const bv=G.bagValue();txt(`背包 ${G.bagUsed()}/${p.cap} · ${fmtK(bv)}`,x+10,y+108,`600 11px ${F_BODY}`,bv>=100000?'#f2c14e':'#d9e1de');
 }
-/* 手机版画面参数：更近的镜头、稳定跟随（只按移动速度轻微前瞻，不跟朝向甩）、减弱抖屏 */
+/* 手机版画面参数：更近的镜头、稳定跟随（只按移动速度轻微前瞻，不跟朝向甩）、减弱抖屏；
+ 横屏时角色放在中线左边 70px：右下的按键簇挡住了东南方，镜头往右让一点，东边能多看到一截 */
 const VIEW_MOBILE={
  pixelBudget:2.4e6,
  zoom:()=>clamp(Math.min(V.W,V.H)/640,.62,1.1),
- camLead(fdt,G,cam){const pl=G.pl,kl=Math.min(1,fdt*2.2);cam.lx+=((pl.vx||0)*.14-cam.lx)*kl;cam.ly+=((pl.vy||0)*.14-cam.ly)*kl;return{x:cam.lx,y:cam.ly};},
+ camLead(fdt,G,cam){const pl=G.pl,kl=Math.min(1,fdt*2.2);cam.lx+=((pl.vx||0)*.14-cam.lx)*kl;cam.ly+=((pl.vy||0)*.14-cam.ly)*kl;return{x:cam.lx+(V.W>V.H?70/V.Z:0),y:cam.ly};},
  camFollow:12,shakeMul:.35,
  worldOverlay(G){
   const pl=G.pl;
@@ -2322,30 +2420,36 @@ const VIEW_MOBILE={
 return Object.freeze({HUD_MOBILE,VIEW_MOBILE});
 })();
 /* ---- platform/mobile/index.js ---- */
-__m[20]=(function(){
+__m[21]=(function(){
 /* ================= 手机版平台对象：触屏操作 + 手机版 HUD 与画面参数 =================
- 平台对象的接口见 docs/ARCHITECTURE.md「平台层」：touch · control · hud · view · raidStart(say) · hurt()。 */
-const {HUD_MOBILE,VIEW_MOBILE}=__m[19];
-const {CONTROL_MOBILE}=__m[18];
+ 平台对象的接口见 docs/architecture/platform.md：touch · control · hud · view · raidStart(say) · hurt()。 */
+const {HUD_MOBILE,VIEW_MOBILE}=__m[20];
+const {CONTROL_MOBILE}=__m[19];
+const {V}=__m[12];
 
 const PF_MOBILE={touch:true,hud:HUD_MOBILE,view:VIEW_MOBILE,control:CONTROL_MOBILE,
- raidStart(say){if(innerHeight>innerWidth)say('横屏游玩视野更开阔','#f0a43a',6);},
+ raidStart(say){if(V.H>V.W)say('横屏游玩视野更开阔：暂停里可以切换横屏','#f0a43a',6);},
  hurt(){try{navigator.vibrate&&navigator.vibrate(35);}catch(_){}}};
 
 return Object.freeze({PF_MOBILE});
 })();
 /* ---- platform/index.js ---- */
-__m[21]=(function(){
+__m[22]=(function(){
 /* ================= 平台层入口 =================
  电脑版、手机版两套界面层都装上：布局在打开时按设备决定（detect.js），操作和 HUD 按最近一次输入随时切换（state.js SCHEME）。
- 对外：initInput(app) 装上输入监听 · active() 当前生效的平台对象 · useTouch(v) 切换操作方式 · enterRaid / leaveRaid / syncTouch 管触屏按键区。 */
-const {SCHEME,isT,setScheme}=__m[12];
-const {PF_DESKTOP}=__m[16];
-const {PF_MOBILE}=__m[20];
-const {initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys}=__m[15];
-const {initMobileInput,touchCanvasDown,touchMove,touchUp,releaseTouch,resetTouchUI,showTouchControls,syncTouchUI}=__m[18];
+ 对外：initInput(app) 装上输入监听 · active() 当前生效的平台对象 · useTouch(v) 切换操作方式 · enterRaid / leaveRaid / syncTouch 管触屏按键区 ·
+ ORIENT / applyOrient / setOrient 画面方向（orient.js）。 */
+const {SCHEME,isT,setScheme}=__m[14];
+const {ORIENT:OR,applyOrient:applyO,setOrient:setO}=__m[13];
+const {PF_DESKTOP}=__m[17];
+const {PF_MOBILE}=__m[21];
+const {initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys}=__m[16];
+const {initMobileInput,touchCanvasDown,touchMove,touchUp,releaseTouch,resetTouchUI,showTouchControls,syncTouchUI}=__m[19];
 
 const active=()=>SCHEME.touch?PF_MOBILE:PF_DESKTOP;
+const ORIENT=OR;
+const applyOrient=applyO;
+const setOrient=setO;
 const useTouch=(v,force)=>setScheme(v,force);
 const enterRaid=()=>showTouchControls(SCHEME.touch);
 function leaveRaid(){showTouchControls(false);releaseTouch();}
@@ -2371,17 +2475,17 @@ function initInput(app){
  initDesktopInput(hooks);initMobileInput(hooks);
 }
 
-return Object.freeze({active,useTouch,enterRaid,leaveRaid,syncTouch,initInput});
+return Object.freeze({active,ORIENT,applyOrient,setOrient,useTouch,enterRaid,leaveRaid,syncTouch,initInput});
 })();
 /* ---- view/hud.js ---- */
-__m[22]=(function(){
+__m[23]=(function(){
 /* ================= HUD：共享部分 =================
  平台差异（角落面板、底部面板、瞄准 / 摇杆显示、提示位置、避让区域）由当前平台对象的 hud 提供（platform/desktop、platform/mobile）；
  平台对象按最近一次输入选用，所以带键盘的平板或触屏笔记本也能随时切换。 */
 const {TAU}=__m[1];
 const {MEDS}=__m[2];
 const {MW,MH}=__m[3];
-const {ctx,V,SAFE,LAYERS,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[13];
+const {ctx,V,SAFE,LAYERS,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
 
 function drawHUD(G,fx,PF){
  ctx.setTransform(V.dpr,0,0,V.dpr,0,0);
@@ -2390,7 +2494,9 @@ function drawHUD(G,fx,PF){
   g.addColorStop(0,'rgba(120,0,0,0)');g.addColorStop(1,`rgba(160,12,12,${a})`);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
  for(const h of fx.hurt){ctx.strokeStyle=`rgba(229,72,77,${Math.min(1,h.t)})`;ctx.lineWidth=5;ctx.beginPath();ctx.arc(ps.x,ps.y,70,h.a-.35,h.a+.35);ctx.stroke();}
  let my=P.corner(G,m,narrow);
- for(const s of fx.msgs){ctx.globalAlpha=Math.min(1,s.life);txt(s.t,P.msgX(m),my,`600 ${narrow?12:13}px ${F_BODY}`,s.c);my+=narrow?18:20;}ctx.globalAlpha=1;
+ // 提示消息：超过平台给的宽度就折行（手机竖屏右边是顶部按键）
+ const mf=`600 ${narrow?12:13}px ${F_BODY}`,mfw=P.msgW(m);
+ for(const s of fx.msgs){ctx.globalAlpha=Math.min(1,s.life);for(const ln of wrap(s.t,mfw,mf)){txt(ln,P.msgX(m),my,mf,s.c);my+=narrow?18:20;}}ctx.globalAlpha=1;
  // minimap
  const mw=P.miniW(narrow),mh=Math.round(mw*MH/MW),mx=W-m-P.safeR()-mw,myy=m+P.safeT(),sc=mw/MW;
  panel(mx-4,myy-4,mw+8,mh+8);ctx.globalAlpha=.9;ctx.drawImage(LAYERS.mini,mx,myy,mw,mh);ctx.globalAlpha=1;
@@ -2399,15 +2505,15 @@ function drawHUD(G,fx,PF){
  ctx.save();ctx.translate(mx+pl.x*sc,myy+pl.y*sc);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,4);ctx.lineTo(-4,-4);ctx.fill();ctx.restore();
  P.top(G,m,narrow);
  // zone banner
- if(fx.zoneT>0){ctx.globalAlpha=Math.min(1,fx.zoneT);txt(G.zone,W/2,H*.2,`800 ${narrow?30:40}px ${F_DISP}`,'#d9e1de','center');
-  txt('进入区域',W/2,H*.2+24,`600 12px ${F_BODY}`,'#82939a','center');ctx.globalAlpha=1;}
+ if(fx.zoneT>0){const by=P.bannerY();ctx.globalAlpha=Math.min(1,fx.zoneT);txt(G.zone,W/2,by,`800 ${narrow||H<440?30:40}px ${F_DISP}`,'#d9e1de','center');
+  txt('进入区域',W/2,by+24,`600 12px ${F_BODY}`,'#82939a','center');ctx.globalAlpha=1;}
  P.bottom(G,m);
  // center prompts
  const cy=P.promptY(m);
  if(G.extZone){const p=G.extT/6;const w=Math.min(320,W-40);panel(W/2-w/2,cy-34,w,44);txt(`正在撤离 · ${G.extZone.n}`,W/2-w/2+12,cy-12,`700 14px ${F_BODY}`,'#4fc3b8');
   txt((6-G.extT).toFixed(1)+'s',W/2+w/2-12,cy-12,`700 14px ${F_MONO}`,'#4fc3b8','right');bar(W/2-w/2+12,cy-2,w-24,4,p,'#4fc3b8');}
  else if(pl.heal)txt(`正在使用 ${MEDS[pl.heal.k].n} · ${pl.heal.t.toFixed(1)}s`,W/2,cy,`700 14px ${F_BODY}`,'#62c46f','center');
- else if(G.near&&!G.lootC&&!pl.dead){const c=G.near,s=P.interactHint+(c.opened?(c.items.length?'继续搜索':'已搜空')+' · ':'搜索 · ')+c.name;
+ else if(G.near&&!G.lootC&&!pl.dead){const c=G.near,s=(c.opened&&!c.items.length?'已搜空 · ':P.interactHint+(c.opened?'继续搜索 · ':'搜索 · '))+c.name;
   ctx.font=`700 14px ${F_BODY}`;const tw=ctx.measureText(s).width+26;panel(W/2-tw/2,cy-22,tw,32);txt(s,W/2,cy-1,`700 14px ${F_BODY}`,c.opened&&!c.items.length?'#82939a':'#f0a43a','center');}
  // extract edge markers
  for(const x of G.ext){const s=toScreen(x.x,x.y);const pad=34;if(s.x>pad&&s.x<W-pad&&s.y>pad+80&&s.y<H-pad)continue;
@@ -2417,12 +2523,17 @@ function drawHUD(G,fx,PF){
  // visible enemies that are off-screen
  for(const e of G.enemies){if(e.dead||!e.vis)continue;const s=toScreen(e.x,e.y);if(s.x>0&&s.x<W&&s.y>0&&s.y<H)continue;
   const a=Math.atan2(s.y-H/2,s.x-W/2),r=Math.min((W/2-18-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-18)/Math.abs(Math.sin(a)||1e-6));
-  ctx.save();ctx.translate(W/2+Math.cos(a)*r,H/2+Math.sin(a)*r);ctx.rotate(a);ctx.fillStyle='#e5484d';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,7);ctx.lineTo(-6,-7);ctx.fill();ctx.restore();}
+  const ex=W/2+Math.cos(a)*r,ey=P.avoid(ex,H/2+Math.sin(a)*r);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#e5484d';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,7);ctx.lineTo(-6,-7);ctx.fill();ctx.restore();}
  P.aim(G,ps);
  if(fx.hitMark>0){const hp=P.hitPos(G,ps),hx=hp.x,hy=hp.y,s=fx.hitMark*40;
   ctx.strokeStyle=fx.hitHead?'#e5484d':'#fff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(hx-s,hy-s);ctx.lineTo(hx-s/2,hy-s/2);ctx.moveTo(hx+s,hy-s);ctx.lineTo(hx+s/2,hy-s/2);ctx.moveTo(hx-s,hy+s);ctx.lineTo(hx-s/2,hy+s/2);ctx.moveTo(hx+s,hy+s);ctx.lineTo(hx+s/2,hy+s/2);ctx.stroke();}
  if(pl.dead){txt('阵亡',W/2,H/2,`800 64px ${F_DISP}`,'#e5484d','center','middle');}
  if(G.bigMap)drawBigMap(G,PF);
+}
+// 按宽度折行（逐字，中文为主）
+function wrap(s,max,font){
+ ctx.font=font;if(ctx.measureText(s).width<=max)return[s];
+ const out=[];let ln='';for(const ch of s){if(ln&&ctx.measureText(ln+ch).width>max){out.push(ln);ln='';}ln+=ch;}if(ln)out.push(ln);return out;
 }
 function drawBigMap(G,PF){
  const {W,H}=V,world=G.world,pl=G.pl;
@@ -2440,15 +2551,15 @@ function drawBigMap(G,PF){
 return Object.freeze({drawHUD});
 })();
 /* ---- view/render.js ---- */
-__m[23]=(function(){
+__m[24]=(function(){
 /* ================= 画面：静态图层（地面、障碍、小地图）与每帧的世界渲染 =================
  只读地图和对局的数据来画，不改游戏状态。镜头与视口在 view/canvas.js，枪口火光、血迹、抖屏在 view/effects.js。 */
 const {TAU,clamp}=__m[1];
 const {CONT_GLYPH}=__m[2];
 const {MW,MH,SEA_Y,YARD_X,YARD_Y,TANKS,PIER,HELIPAD,segObs}=__m[3];
 const {VIS_R}=__m[4];
-const {ctx,fc,fctx,V,cam,LAYERS,F_DISP,F_BODY,F_MONO,MINI_W,MINI_H,setWorld}=__m[13];
-const {drawHUD}=__m[22];
+const {ctx,fc,fctx,V,cam,LAYERS,F_DISP,F_BODY,F_MONO,MINI_W,MINI_H,setWorld}=__m[12];
+const {drawHUD}=__m[23];
 
 const rnd=(a,b)=>a+Math.random()*(b-a);   // 画面装饰用的随机（地面纹理、抖屏），和对局的随机数无关
 
@@ -2629,7 +2740,7 @@ function drawSoldier(e,col,pl){
 return Object.freeze({renderStatic,render});
 })();
 /* ---- view/effects.js ---- */
-__m[24]=(function(){
+__m[25]=(function(){
 /* ================= 局内反馈：把对局事件变成特效、提示、音效和震动 =================
  core/raid.js 只发事件（raid.events），这里决定怎么表现：枪口火光、弹着火花、血迹、抖屏、受击方向、命中标记、提示消息、进入区域横幅。
  这些状态只属于画面，不影响对局结果。handle() 处理一条事件，update() 随对局计时衰减（暂停时不调用）。 */
@@ -2672,12 +2783,12 @@ function createEffects(audio){
 return Object.freeze({createEffects});
 })();
 /* ---- view/lobby.js ---- */
-__m[25]=(function(){
+__m[26]=(function(){
 /* ================= 大厅：资金、配装、仓库、模式与出发（两个平台共用的 DOM 界面） =================
  只负责显示和收集点击；买卖、配装等规则在 core/profile.js，次数在 core/meta.js。 */
 const {fmt,fmtK}=__m[1];
 const {WEAPONS,ARMORS,HELMETS,BAGS,MEDS,ITEMS,MODES,RC,iName,iR,iSize,iVal}=__m[2];
-const {$,armConfirm}=__m[17];
+const {$,armConfirm}=__m[18];
 
 const GROUPS=[['w','主武器',WEAPONS],['a','防弹衣',ARMORS],['h','头盔',HELMETS],['b','背包',BAGS]];
 // profile / meta：存档与设备信息 · mobile：手机版布局 · device：全屏等设备能力 · deploy()：开始行动 · switchPlatform(p)：切换界面版本 · refresh()：重画大厅
@@ -2706,9 +2817,9 @@ function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh})
   const okX=profile.canEnter('x'),minX=MODES.x.minKit;
   $('modeN').classList.toggle('on',MODE==='n');$('modeX').classList.toggle('on',MODE==='x');
   $('reqX').className='req'+(okX?'':' bad');$('reqX').textContent=mobile?(okX?'配装已达标':`需配装 ≥ ${fmtK(minX)}`):`入场配装价值 ≥ ${fmt(minX)} · ${okX?'已满足':'当前 '+fmt(kv)}`;
-  const pl0=meta.plays(),hasPlay=pl0.unlimited||pl0.free>0||pl0.bonus>0,named=!!meta.M.name,modeOK=profile.canEnter(MODE);
-  $('deployBtn').disabled=!(modeOK&&hasPlay&&named);
-  $('deployInfo').textContent=!named?'先设置代号':!hasPlay?'今日次数已用完':!modeOK?'配装价值不足':pl0.unlimited?`无限次 · 带入 ${fmtK(kv)}`:`消耗 1 次 · 带入 ${fmtK(kv)}`;
+  const pl0=meta.plays(),hasPlay=pl0.unlimited||pl0.free>0||pl0.bonus>0,modeOK=profile.canEnter(MODE);
+  $('deployBtn').disabled=!(modeOK&&hasPlay);
+  $('deployInfo').textContent=!hasPlay?'今日次数已用完':!modeOK?'配装价值不足':pl0.unlimited?`无限次 · 带入 ${fmtK(kv)}`:`消耗 1 次 · 带入 ${fmtK(kv)}`;
  }
  function renderStash(){
   const S=profile.save;
@@ -2725,7 +2836,13 @@ function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh})
   $('sellAll').addEventListener('click',e=>armConfirm(e.currentTarget,'全部出售',()=>{profile.sellWhere(()=>true);refresh();}));
   $('resetBtn').addEventListener('click',e=>armConfirm(e.currentTarget,'重置存档',()=>{profile.reset();refresh();}));
   for(const b of document.querySelectorAll('.mode'))b.addEventListener('click',()=>{profile.setMode(b.dataset.mode);refresh();});
-  $('deployBtn').addEventListener('click',()=>{if(!$('deployBtn').disabled)deploy();});
+  // 没带医疗品时第一次点只提醒，3 秒内再点才出发（阵亡后医疗品清零，出发前很容易没注意到）
+  let medsArm=0;
+  $('deployBtn').addEventListener('click',()=>{
+   if($('deployBtn').disabled)return;const S=profile.save,t=performance.now();
+   if(!S.meds.band&&!S.meds.kit&&t>medsArm){medsArm=t+3000;$('deployInfo').textContent='没带医疗品 · 再点一次出发';setTimeout(()=>{if(medsArm&&performance.now()>=medsArm){medsArm=0;render();}},3000);return;}
+   medsArm=0;deploy();
+  });
   // 大厅分页（手机版布局才显示分页按钮）
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(!b)return;
    for(const t of document.querySelectorAll('.tabs button'))t.classList.toggle('on',t===b);
@@ -2744,23 +2861,25 @@ function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh})
 return Object.freeze({createLobby});
 })();
 /* ---- view/raid-ui.js ---- */
-__m[26]=(function(){
+__m[27]=(function(){
 /* ================= 局内面板：搜索面板、背包、暂停、结算（DOM） =================
  面板的开关跟着对局状态走：每帧 sync(raid) 对照一次，状态变了才动 DOM；按钮只调用 raid 的方法。 */
 const {fmt,fmtK,mmss}=__m[1];
 const {RC,RN,REVEAL,MEDS,BAGS,SAFE_CAP,iName,iR,iSize,iVal}=__m[2];
-const {$,armConfirm}=__m[17];
+const {$,armConfirm}=__m[18];
 
 // getRaid()：进行中的对局（没有则 null）· back()：结算页「返回基地」
 function createRaidUI({getRaid,back}){
- let lootVer=-1,lootTouch=null,invShown=false,pauseShown=false;
+ let lootVer=-1,lootTouch=null,invShown=false,pauseShown=false,hpSeen=0,hitT=0,takeLock=0,sumAt=0;
 
  /* ---- loot panel ---- */
  function syncLoot(G,touch){
   const c=!G.over?G.lootC:null,el=$('loot');
   if(!c){if(!el.hidden)el.hidden=true;return;}
   let dirty=G.lootVer!==lootVer||touch!==lootTouch;
-  if(el.hidden){el.hidden=false;dirty=true;}
+  if(el.hidden){el.hidden=false;dirty=true;hitT=0;hpSeen=G.pl.hp;}
+  // 搜的时候挨打就先收起列表（触屏样式里 .hit 只留标题栏），让出视野，1.5 秒没再挨打再展开
+  if(G.pl.hp<hpSeen)hitT=G.t+1.5;hpSeen=G.pl.hp;el.classList.toggle('hit',G.t<hitT);
   if(dirty){lootVer=G.lootVer;lootTouch=touch;const pl=G.pl;
    $('lootTitle').textContent=c.name;$('lootCap').textContent=`背包 ${G.bagUsed()}/${pl.cap} 格`;
    $('lootHint').textContent=touch?'点物品拾取':'点击物品拾取';$('takeAll').textContent=touch?'全部拾取':'全部拾取 F';
@@ -2779,7 +2898,7 @@ function createRaidUI({getRaid,back}){
  }
 
  /* ---- inventory ---- */
- function syncInv(G){const open=!!G.invOpen;if(open===invShown)return;invShown=open;$('inv').hidden=!open;if(open)renderInv(G);}
+ function syncInv(G,touch){const open=!!G.invOpen;if(open===invShown)return;invShown=open;$('inv').hidden=!open;if(open){$('invClose').textContent=touch?'关闭':'关闭 Tab';renderInv(G);}}
  function rowHTML(id,i,acts){const r=iR(id);return `<div class="row" style="--rc:${RC[r]}"><div><div class="n">${iName(id)}</div><div class="m">${RN[r]} · ${iSize(id)}格 · ${fmt(iVal(id))}</div></div><div class="acts">${acts}</div></div>`;}
  function renderInv(G){
   const pl=G.pl,bu=G.bagUsed(),su=G.safeUsed();
@@ -2798,7 +2917,7 @@ function createRaidUI({getRaid,back}){
 
  /* ---- summary ---- */
  function showSummary(r){
-  $('loot').hidden=true;$('inv').hidden=true;$('pause').hidden=true;invShown=false;pauseShown=false;
+  $('loot').hidden=true;$('inv').hidden=true;$('pause').hidden=true;invShown=false;pauseShown=false;sumAt=performance.now();
   const t=$('resTitle');t.textContent=r.ok?'撤离成功':'行动失败';t.className='res '+(r.ok?'ok':'bad');
   $('resSub').textContent=r.ok?`经由「${r.info}」撤离。背包物资已存入仓库，配装完好保留。`:`${r.info}。带入的配装与背包物资全部丢失${r.items.length?'，安全箱里的物资已保住':''}。`;
   $('resKV').innerHTML=`<div><span class="lbl">带出价值</span><b style="color:${r.ok?'#4fc3b8':'#d9e1de'}">${fmtK(r.value)}</b></div><div><span class="lbl">击倒</span><b>${r.kills}</b></div>
@@ -2808,9 +2927,12 @@ function createRaidUI({getRaid,back}){
  }
 
  function mount(){
-  $('lootList').addEventListener('click',e=>{const b=e.target.closest('button.lr'),G=getRaid();if(!b||!G)return;G.take(+b.dataset.i);});
+  // 拿走一件后后面的格子会补上来，300ms 内的连点不算，免得多拿一件；背包放不下时格子闪红框
+  $('lootList').addEventListener('click',e=>{const b=e.target.closest('button.lr'),G=getRaid();if(!b||!G||e.timeStamp<takeLock)return;
+   if(G.take(+b.dataset.i))takeLock=e.timeStamp+300;else{b.classList.add('nofit');setTimeout(()=>b.classList.remove('nofit'),600);}});
   $('takeAll').addEventListener('click',()=>{const G=getRaid();if(G)G.takeAll();});
-  $('lootClose').addEventListener('click',()=>{const G=getRaid();if(G)G.closeLoot();});
+  const closeLoot=()=>{const G=getRaid();if(G)G.closeLoot();};
+  $('lootClose').addEventListener('click',closeLoot);$('lootX').addEventListener('click',closeLoot);
   $('inv').addEventListener('click',e=>{
    const G=getRaid();if(!G)return;
    if(e.target===$('inv')){G.toggleInv(false);return;}
@@ -2821,25 +2943,276 @@ function createRaidUI({getRaid,back}){
   $('invClose').addEventListener('click',()=>{const G=getRaid();if(G)G.toggleInv(false);});
   $('resumeBtn').addEventListener('click',()=>{const G=getRaid();if(G)G.resume();});
   $('quitBtn').addEventListener('click',e=>armConfirm(e.currentTarget,'放弃行动',()=>{const G=getRaid();if(G)G.abandon();}));
-  $('backBtn').addEventListener('click',back);
+  // 结算页刚弹出时手指可能还在狂点开火键的位置，0.8 秒内的点击不算，免得一下就跳回基地
+  $('backBtn').addEventListener('click',e=>{if(e.timeStamp-sumAt>800)back();});
  }
  // 每帧：面板开关对照对局状态；touch 为当前是否触屏操作（文案不同）
- function sync(G,touch){syncLoot(G,touch);syncInv(G);syncPause(G);}
+ function sync(G,touch){syncLoot(G,touch);syncInv(G,touch);syncPause(G);}
  return{mount,sync,showSummary};
 }
 
 return Object.freeze({createRaidUI});
 })();
-/* ---- view/meta-ui.js ---- */
-__m[27]=(function(){
-/* ================= 代号 / 次数 / 邀请 / 好友榜的界面（两个平台共用；布局差异在样式里） =================
- 规则都在 core/meta.js，这里只负责状态栏、弹窗、好友榜、分享与复制。 */
-const {fmtK,pad2}=__m[1];
-const {RULES,fmtDid,didTag,nameOK}=__m[6];
-const {$,esc,toast}=__m[17];
+/* ---- core/qr.js ---- */
+__m[28]=(function(){
+/* ================= 二维码编码（战绩图上的邀请链接） =================
+   只做一种：字节模式（UTF-8）+ 纠错等级 M（约 15% 可恢复，聊天软件压图后仍能扫）。版本 1–40 自动取最小的。
+   算法按 ISO/IEC 18004；不引第三方库（AGENTS.md 规则 6）。纯函数，Node 里可测。 */
 
-// meta：设备信息与规则 · device：分享 / 复制 · touch()：当前是否触屏操作 · refresh()：重画大厅
+// 纠错等级 M：每块纠错码字数、块数（下标 = 版本，0 占位）
+const ECC_M=[0,10,16,26,18,24,16,18,22,22,26,30,22,22,24,24,28,28,26,26,26,26,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28];
+const BLOCKS_M=[0,1,1,1,2,2,4,4,4,5,5,5,8,9,9,10,10,11,13,14,16,17,17,18,20,21,23,25,26,28,29,31,33,35,37,38,40,43,45,47,49];
+
+// 版本 v 里能放数据和纠错码的模块数（去掉定位、定时、校正、格式、版本信息）
+function rawModules(v){
+ let n=(16*v+128)*v+64;
+ if(v>=2){const a=Math.floor(v/7)+2;n-=(25*a-10)*a-55;if(v>=7)n-=36;}
+ return n;
+}
+// 版本 v 的数据码字数（不含纠错）
+const dataCodewords=v=>Math.floor(rawModules(v)/8)-ECC_M[v]*BLOCKS_M[v];
+// 校正图形中心坐标
+function alignPos(v){
+ if(v===1)return[];
+ const a=Math.floor(v/7)+2,size=v*4+17,step=Math.floor((v*8+a*3+5)/(a*4-4))*2,r=[6];
+ for(let p=size-7;r.length<a;p-=step)r.splice(1,0,p);
+ return r;
+}
+
+/* ---- Reed-Solomon（GF(256)，本原多项式 0x11D） ---- */
+function gmul(x,y){let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);z^=((y>>>i)&1)*x;}return z;}
+function rsDivisor(deg){
+ const r=new Array(deg).fill(0);r[deg-1]=1;let root=1;
+ for(let i=0;i<deg;i++){for(let j=0;j<deg;j++){r[j]=gmul(r[j],root);if(j+1<deg)r[j]^=r[j+1];}root=gmul(root,2);}
+ return r;
+}
+function rsRemainder(data,div){
+ const r=div.map(()=>0);
+ for(const b of data){const f=b^r.shift();r.push(0);div.forEach((c,i)=>{r[i]^=gmul(c,f);});}
+ return r;
+}
+
+// 数据码字分块、各自加纠错码，再交错排列
+function interleave(data,v){
+ const nb=BLOCKS_M[v],ecc=ECC_M[v],raw=Math.floor(rawModules(v)/8),nShort=nb-raw%nb,shortLen=Math.floor(raw/nb),div=rsDivisor(ecc),blocks=[];
+ for(let i=0,k=0;i<nb;i++){
+  const d=data.slice(k,k+shortLen-ecc+(i<nShort?0:1));k+=d.length;
+  const e=rsRemainder(d,div);if(i<nShort)d.push(0);   // 短块补一个占位，交错时跳过
+  blocks.push(d.concat(e));
+ }
+ const out=[];
+ for(let i=0;i<blocks[0].length;i++)blocks.forEach((b,j)=>{if(i!==shortLen-ecc||j>=nShort)out.push(b[i]);});
+ return out;
+}
+
+/* ---- 掩码与罚分（选罚分最低的掩码，扫码更稳） ---- */
+const MASKS=[
+ (x,y)=>(x+y)%2===0,(x,y)=>y%2===0,(x,y)=>x%3===0,(x,y)=>(x+y)%3===0,
+ (x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2===0,(x,y)=>x*y%2+x*y%3===0,
+ (x,y)=>(x*y%2+x*y%3)%2===0,(x,y)=>((x+y)%2+x*y%3)%2===0];
+function penalty(m){
+ const n=m.length;let s=0,dark=0;
+ const line=get=>{   // 一行或一列：连续同色 ≥5、类定位图形 1:1:3:1:1
+  let run=1;const bits=[];
+  for(let i=0;i<n;i++){bits.push(get(i)?1:0);if(i&&get(i)===get(i-1)){run++;if(run===5)s+=3;else if(run>5)s++;}else run=1;}
+  const str=bits.join('');
+  for(const p of['10111010000','00001011101'])for(let i=str.indexOf(p);i>=0;i=str.indexOf(p,i+1))s+=40;
+ };
+ for(let i=0;i<n;i++){line(x=>m[i][x]);line(y=>m[y][i]);}
+ for(let y=0;y<n-1;y++)for(let x=0;x<n-1;x++){const c=m[y][x];if(c===m[y][x+1]&&c===m[y+1][x]&&c===m[y+1][x+1])s+=3;}
+ for(const row of m)for(const c of row)if(c)dark++;
+ s+=(Math.ceil(Math.abs(dark*20-n*n*10)/(n*n))-1)*10;
+ return s;
+}
+
+/* 编码：返回 {size, m}，m[y][x] 为 true 表示深色模块（不含四周留白，画的时候自己留 4 格）。
+   opt.mask 固定掩码 0–7（测试用），不传就自动选。内容太长（超过版本 40）抛错。 */
+function qrEncode(text,opt={}){
+ const bytes=[...new TextEncoder().encode(String(text))];
+ let v=1;
+ for(;;v++){
+  if(v>40)throw new Error('二维码内容太长');
+  if(4+(v<10?8:16)+bytes.length*8<=dataCodewords(v)*8)break;
+ }
+ // 比特流：模式 0100 + 长度 + 数据 + 终止符，补齐到整字节，再交替补 0xEC 0x11
+ const cap=dataCodewords(v)*8,bits=[];
+ const put=(val,len)=>{for(let i=len-1;i>=0;i--)bits.push((val>>>i)&1);};
+ put(4,4);put(bytes.length,v<10?8:16);for(const b of bytes)put(b,8);
+ put(0,Math.min(4,cap-bits.length));put(0,(8-bits.length%8)%8);
+ for(let p=0xEC;bits.length<cap;p^=0xEC^0x11)put(p,8);
+ const data=[];for(let i=0;i<bits.length;i+=8)data.push(parseInt(bits.slice(i,i+8).join(''),2));
+ const code=interleave(data,v);
+
+ const size=v*4+17,m=[],fn=[];
+ for(let y=0;y<size;y++){m.push(new Array(size).fill(false));fn.push(new Array(size).fill(false));}
+ const set=(x,y,d)=>{m[y][x]=d;fn[y][x]=true;};
+ // 功能图形：定时线、三个定位图形、校正图形
+ for(let i=0;i<size;i++){set(6,i,i%2===0);set(i,6,i%2===0);}
+ for(const[cx,cy]of[[3,3],[size-4,3],[3,size-4]])
+  for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const x=cx+dx,y=cy+dy,d=Math.max(Math.abs(dx),Math.abs(dy));if(x>=0&&x<size&&y>=0&&y<size)set(x,y,d!==2&&d!==4);}
+ const ap=alignPos(v),last=ap.length-1;
+ ap.forEach((ax,i)=>ap.forEach((ay,j)=>{
+  if((i===0&&j===0)||(i===0&&j===last)||(i===last&&j===0))return;   // 和定位图形重叠的三个角不画
+  for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(ax+dx,ay+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
+ }));
+ // 格式信息（纠错等级 M = 00）与版本信息
+ const format=mask=>{
+  const d=mask;let r=d;for(let i=0;i<10;i++)r=(r<<1)^((r>>>9)*0x537);
+  const b=((d<<10)|r)^0x5412,bit=i=>((b>>>i)&1)===1;
+  for(let i=0;i<=5;i++)set(8,i,bit(i));
+  set(8,7,bit(6));set(8,8,bit(7));set(7,8,bit(8));
+  for(let i=9;i<15;i++)set(14-i,8,bit(i));
+  for(let i=0;i<8;i++)set(size-1-i,8,bit(i));
+  for(let i=8;i<15;i++)set(8,size-15+i,bit(i));
+  set(8,size-8,true);   // 固定的深色模块
+ };
+ format(0);   // 先占位，确定哪些是功能模块
+ if(v>=7){
+  let r=v;for(let i=0;i<12;i++)r=(r<<1)^((r>>>11)*0x1F25);
+  const b=(v<<12)|r;
+  for(let i=0;i<18;i++){const d=((b>>>i)&1)===1,a=size-11+i%3,c=Math.floor(i/3);set(a,c,d);set(c,a,d);}
+ }
+ // 数据按之字形从右下往上填，两列一组，跳过第 6 列（定时线）
+ let k=0;
+ for(let right=size-1;right>=1;right-=2){
+  if(right===6)right=5;
+  for(let vert=0;vert<size;vert++)for(let j=0;j<2;j++){
+   const x=right-j,y=((right+1)&2)===0?size-1-vert:vert;
+   if(!fn[y][x]&&k<code.length*8){m[y][x]=((code[k>>>3]>>>(7-(k&7)))&1)===1;k++;}
+  }
+ }
+ const apply=mask=>{for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(!fn[y][x]&&MASKS[mask](x,y))m[y][x]=!m[y][x];};
+ let best=opt.mask;
+ if(best===undefined){
+  let low=Infinity;
+  for(let i=0;i<8;i++){apply(i);format(i);const p=penalty(m);if(p<low){low=p;best=i;}apply(i);}   // 掩码是异或，再套一次就还原
+ }
+ apply(best);format(best);
+ return{size,m,version:v,mask:best};
+}
+
+return Object.freeze({dataCodewords,qrEncode});
+})();
+/* ---- view/share-card.js ---- */
+__m[29]=(function(){
+/* ================= 战绩图：结算时画一张 1080×1350 的竖版图，玩家自己发到群里 =================
+ 没有排行榜，群里比的就是图上的数字（带出价值、本局积分、本周积分）。右下角二维码是自己的邀请链接，新玩家扫码进来多得次数。
+ 这里只画图和导出；分享、复制、下载在 services/device.js，由 view/meta-ui.js 调用。 */
+const {fmtK,mmss,pad2}=__m[1];
+const {EK,RC,iName,iR,iVal}=__m[2];
+const {RULES}=__m[6];
+const {qrEncode}=__m[28];
+const {F_DISP,F_BODY,F_MONO}=__m[12];
+
+const W=1080,H=1350,P=72,QW=268;   // 画布、左右留边、右下二维码栏宽
+// 颜色和 styles/base.css 的 CSS 变量各有一份
+const C={bg:'#0b1113',line:'#24323a',text:'#d9e1de',muted:'#82939a',teal:'#4fc3b8',red:'#e5484d',amber:'#f0a43a'};
+
+function txt(g,s,x,y,font,col,align){g.font=font;g.fillStyle=col;g.textAlign=align||'left';g.textBaseline='alphabetic';g.fillText(s,x,y);}
+// 超出宽度就截断加省略号（代号、物品名）
+function fit(g,s,font,max){g.font=font;s=String(s);if(g.measureText(s).width<=max)return s;while(s&&g.measureText(s+'…').width>max)s=s.slice(0,-1);return s+'…';}
+
+// canvas 不会等网页字体：按要画的字先加载，最多等 3 秒，超时就用回退字体画
+function fontsReady(text){
+ if(!document.fonts||!document.fonts.load)return Promise.resolve();
+ const jobs=['800 64px "Saira Condensed"','700 64px "Saira Condensed"','400 24px "IBM Plex Mono"'].map(f=>document.fonts.load(f,text).catch(()=>{}));
+ return Promise.race([Promise.all(jobs),new Promise(r=>setTimeout(r,3000))]);
+}
+
+// d：{r 对局结果（core/raid.js end）, rec 本局记录（core/meta.js record，可能为 null）, week weekStats(), name 代号, link 邀请链接, t 时间戳}
+function draw(g,{r,rec,week,name,link,t}){
+ const ok=r.ok,accent=ok?C.teal:C.red,d=new Date(t);
+ g.fillStyle=C.bg;g.fillRect(0,0,W,H);
+ g.strokeStyle='rgba(255,255,255,.025)';g.lineWidth=1;g.beginPath();   // 淡网格底纹
+ for(let x=54;x<W;x+=54){g.moveTo(x+.5,0);g.lineTo(x+.5,H);}for(let y=54;y<H;y+=54){g.moveTo(0,y+.5);g.lineTo(W,y+.5);}g.stroke();
+ g.fillStyle=accent;g.fillRect(0,0,W,10);
+
+ // 页眉：标志、模式、日期
+ txt(g,'暗礁',P,132,`800 64px ${F_DISP}`,C.text);
+ g.font=`800 64px ${F_DISP}`;txt(g,'行动',P+g.measureText('暗礁').width+6,132,`800 64px ${F_DISP}`,C.amber);
+ txt(g,'OPERATION REEF · 港区撤离作战',P,172,`500 22px ${F_BODY}`,C.muted);
+ txt(g,`港区 · ${r.mode==='x'?'机密':'常规'}`,W-P,122,`700 34px ${F_BODY}`,C.text,'right');
+ txt(g,`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`,W-P,164,`400 24px ${F_MONO}`,C.muted,'right');
+ g.fillStyle=C.line;g.fillRect(P,204,W-P*2,2);
+
+ // 结果与带出价值；失败统一叫「行动失败」（超时、放弃都不算阵亡），和结算页一致
+ txt(g,ok?'撤离成功':'行动失败',P,316,`800 116px ${F_DISP}`,accent);
+ txt(g,fit(g,ok?`经由「${r.info}」撤离`:r.info,`500 34px ${F_BODY}`,W-P*2),P,374,`500 34px ${F_BODY}`,C.muted);
+ if(r.killed&&r.killed.boss>0){
+  const s=`击倒首领「${EK.boss.n}」`;g.font=`700 30px ${F_BODY}`;const w=g.measureText(s).width+36;
+  g.strokeStyle=C.amber;g.lineWidth=3;g.strokeRect(W-P-w,256,w,58);txt(g,s,W-P-18,296,`700 30px ${F_BODY}`,C.amber,'right');
+ }
+ txt(g,'带出价值',P,452,`500 30px ${F_BODY}`,C.muted);
+ txt(g,fmtK(r.value),P-4,586,`800 150px ${F_DISP}`,ok?C.text:C.muted);
+
+ // 四格数字：本局积分、本周积分、击倒、用时
+ const cells=[['本局积分',rec?`+${rec.score}`:'—',''],['本周积分',String(week.total),`最好 ${RULES.weekTop} 局 · 共 ${week.count} 局`],['击倒',String(r.kills),''],['用时',mmss(r.dur),'']];
+ const cw=(W-P*2-16*3)/4;
+ cells.forEach(([lbl,val,sub],i)=>{
+  const x=P+i*(cw+16),y=616;
+  g.strokeStyle=C.line;g.lineWidth=2;g.strokeRect(x+1,y+1,cw-2,158);
+  txt(g,lbl,x+18,y+42,`500 26px ${F_BODY}`,C.muted);
+  txt(g,val,x+18,y+114,`700 64px ${F_DISP}`,i<2?C.amber:C.text);
+  if(sub)txt(g,fit(g,sub,`400 19px ${F_BODY}`,cw-30),x+18,y+146,`400 19px ${F_BODY}`,C.muted);
+ });
+
+ // 左下：带出物资（按价值取前 5 件）与代号
+ const items=r.items.slice().sort((a,b)=>iVal(b)-iVal(a)),LX=W-P-QW-40;
+ txt(g,`带出物资 · ${items.length} 件`,P,846,`500 28px ${F_BODY}`,C.muted);
+ if(!items.length)txt(g,'没有带出物资',P,900,`500 30px ${F_BODY}`,C.muted);
+ items.slice(0,5).forEach((id,i)=>{
+  const y=868+i*52,v=fmtK(iVal(id));
+  g.fillStyle=RC[iR(id)];g.fillRect(P,y,6,40);
+  g.font=`700 30px ${F_DISP}`;const vw=g.measureText(v).width;
+  txt(g,fit(g,iName(id),`500 30px ${F_BODY}`,LX-P-22-vw-20),P+22,y+31,`500 30px ${F_BODY}`,C.text);
+  txt(g,v,LX,y+31,`700 30px ${F_DISP}`,C.muted,'right');
+ });
+ if(items.length>5)txt(g,`另有 ${items.length-5} 件`,P+22,868+5*52+28,`400 24px ${F_BODY}`,C.muted);
+ txt(g,'代号',P,1216,`500 26px ${F_BODY}`,C.muted);
+ txt(g,fit(g,name,`800 56px ${F_DISP}`,LX-P),P,1278,`800 56px ${F_DISP}`,C.text);
+
+ // 右下：邀请二维码（白底，四周留 4 格空白，扫码软件才认得出）
+ const X0=W-P-QW;let q=null;try{q=qrEncode(link);}catch(_){}
+ let y=830;
+ if(q){
+  const mod=Math.floor(QW/(q.size+8)),S=mod*(q.size+8),x=X0+Math.floor((QW-S)/2);
+  g.fillStyle='#fff';g.fillRect(x,y,S,S);g.fillStyle='#000';
+  for(let j=0;j<q.size;j++)for(let i=0;i<q.size;i++)if(q.m[j][i])g.fillRect(x+(i+4)*mod,y+(j+4)*mod,mod,mod);
+  y+=S;
+ }
+ txt(g,'扫码来玩',X0+QW/2,y+44,`700 30px ${F_BODY}`,C.text,'center');
+ txt(g,`新玩家多得 ${RULES.inviteeBonus} 次行动`,X0+QW/2,y+84,`500 24px ${F_BODY}`,C.teal,'center');
+ let host='';try{const u=new URL(link);host=u.host+u.pathname.replace(/\/$/,'');}catch(_){}
+ txt(g,fit(g,host,`400 18px ${F_MONO}`,QW),X0+QW/2,y+118,`400 18px ${F_MONO}`,C.muted,'center');
+}
+
+/* 画好并导出 {blob, file, url}：file（PNG）给系统分享，blob 给复制和下载；
+   url 是 JPEG 的 data: 地址，给预览图长按保存——聊天软件的内置浏览器里 data: 比 blob: 更容易存下来 */
+async function makeCard(d){
+ await fontsReady(`${d.name}暗礁行动撤离成功失败带出价值本局本周积分击倒用时代号扫码来玩0123456789¥万+-—:·`);
+ const c=document.createElement('canvas');c.width=W;c.height=H;
+ draw(c.getContext('2d'),d);
+ const blob=await new Promise(res=>c.toBlob(res,'image/png'));
+ if(!blob)throw new Error('战绩图生成失败');
+ const url=c.toDataURL('image/jpeg',.92);
+ c.width=c.height=0;   // 及时释放画布内存（iOS 对画布总内存有上限）
+ return{blob,file:new File([blob],'reef-ops.png',{type:'image/png'}),url};
+}
+
+return Object.freeze({makeCard});
+})();
+/* ---- view/meta-ui.js ---- */
+__m[30]=(function(){
+/* ================= 代号 / 次数 / 邀请 / 口令 / 战绩图的界面（两个平台共用；布局差异在样式里） =================
+ 规则都在 core/meta.js，这里只负责状态栏、弹窗、最近战绩、战绩图的分享与复制。 */
+const {fmtK,pad2}=__m[1];
+const {RULES,fmtDid,nameOK}=__m[6];
+const {$,esc,toast}=__m[18];
+const {makeCard}=__m[29];
+
+// meta：设备信息与规则 · device：分享 / 复制 / 下载 · touch()：当前是否触屏操作 · refresh()：重画大厅
 function createMetaUI({meta,device,touch,refresh}){
+ let card=null,cardJob=0;   // 最近一局的战绩图 {blob, file, url}，大厅「分享上一局战绩图」也用它；只在内存里，刷新页面就没了
  async function copyText(s){
   if(await device.copy(s)){toast('已复制','ok');return true;}
   const i=$('modalBox').querySelector('input[readonly],textarea');if(i){i.focus();i.select();}
@@ -2853,54 +3226,38 @@ function createMetaUI({meta,device,touch,refresh}){
  function modal(html){const m=$('modal');$('modalBox').innerHTML=html;m.hidden=false;return $('modalBox');}
  function closeModal(){$('modal').hidden=true;}
 
- /* ---- 收到的链接 / 粘贴的内容 ---- */
+ /* ---- 收到的链接 / 扫的码 / 粘贴的内容 ---- */
  async function handle(text){
   const o=await meta.incoming(text);if(!o)return;
-  if(o.name)openName();else toast(o.text,o.kind);
-  refresh();
+  toast(o.text,o.kind);refresh();
  }
  function readURL(){
-  const h=location.hash;if(!/#[pirs]=/.test(h))return;
+  const h=location.hash;if(!/#[pir]=/.test(h))return;
   history.replaceState(null,'',location.pathname+location.search);
   handle(h);
  }
 
  /* ---- 弹窗 ---- */
- function openName(suggest){
-  const M=meta.M,inv=meta.pendingInvite,renaming=!!M.name,invite=inv&&!renaming;
-  const box=modal(`<div class="res">${renaming?'修改代号':'设置代号'}</div>
-   <p class="resSub">代号是你在好友榜上显示的名字，2–12 个字：中英文、数字或 _ - ·。可以和别人重名，系统用设备码区分。</p>
-   ${invite?`<p class="okline">你被「${esc(inv.n)}」邀请，起好代号就能多得 ${RULES.inviteeBonus} 次行动。</p>`:''}
-   ${renaming?'<p class="resSub">改名不影响口令和次数；好友那边要等你再发一次战绩链接才会显示新名字。</p>':''}
-   <input id="nameInput" maxlength="12" autocomplete="off" spellcheck="false" placeholder="例如：夜枭" value="${esc(suggest||(renaming?M.name:''))}">
+ // 首次打开时 core 已随机起好代号（如「夜枭07」），这里只管改名
+ function openName(){
+  const box=modal(`<div class="res">修改代号</div>
+   <p class="resSub">代号印在你的战绩图和邀请链接上，2–12 个字：中英文、数字或 _ - ·。可以和别人重名，系统用设备码区分。改名不影响口令、次数和邀请关系。</p>
+   <input id="nameInput" maxlength="12" autocomplete="off" spellcheck="false" placeholder="例如：夜枭" value="${esc(meta.M.name)}">
    <div class="err" id="nameErr"></div>
-   <div class="tools"><button class="primary" id="nameOk">确定</button>${renaming?'<button class="btn" id="nameCancel">取消</button>':''}</div>`);
+   <div class="tools"><button class="primary" id="nameOk">确定</button><button class="btn" id="nameCancel">取消</button></div>`);
   const inp=box.querySelector('#nameInput');setTimeout(()=>inp.focus(),50);
-  const go=async()=>{
+  const go=()=>{
    const v=inp.value.trim();if(!nameOK(v)){box.querySelector('#nameErr').textContent='2–12 个字，只能用中英文、数字或 _ - ·';return;}
-   const first=meta.setName(v);closeModal();
-   await meta.refreshPass();refresh();
-   if(first)toast(meta.M.invitedBy?`欢迎，${v}！已到账 ${RULES.inviteeBonus} 次邀请礼包`:`欢迎，${v}！`,'ok');
+   meta.setName(v);closeModal();refresh();
   };
   box.querySelector('#nameOk').addEventListener('click',go);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
-  const c=box.querySelector('#nameCancel');if(c)c.addEventListener('click',closeModal);
- }
- function openPaste(){
-  const box=modal(`<div class="res">输入口令 / 链接</div>
-   <p class="resSub">把收到的口令、邀请链接、回执链接或好友的战绩链接粘贴到下面。</p>
-   <textarea id="pasteInput" rows="4" spellcheck="false" placeholder="粘贴到这里"></textarea>
-   <p class="resSub">装到主屏幕的 App 和 Safari 的数据是分开的：在 Safari 里点开的链接不会带进 App，请复制后在 App 里从这里粘贴。</p>
-   <div class="tools"><button class="primary" id="pasteOk">确定</button><button class="btn" id="pasteCancel">取消</button></div>`);
-  const ta=box.querySelector('#pasteInput');setTimeout(()=>ta.focus(),50);
-  box.querySelector('#pasteOk').addEventListener('click',()=>{const v=ta.value;closeModal();handle(v);});
-  box.querySelector('#pasteCancel').addEventListener('click',closeModal);
+  box.querySelector('#nameCancel').addEventListener('click',closeModal);
  }
  function openInvite(){
-  const M=meta.M;if(!M.name){openName();return;}
-  const link=meta.inviteLink(),rc=meta.receiptReady();
+  const M=meta.M,link=meta.inviteLink(),rc=meta.receiptReady();
   const box=modal(`<div class="res">邀请好友</div>
-   <p class="resSub">把链接发给还没玩过的朋友：TA 起好代号就多得 ${RULES.inviteeBonus} 次行动；TA 第一次撤离成功后，会拿到一条「回执链接」，发回给你，你打开就得 ${RULES.inviterBonus} 次行动（每天最多领 ${RULES.receiptPerDay} 张）。</p>
+   <p class="resSub">把链接发给还没玩过的朋友（战绩图上的二维码也是这条链接）：TA 打开就多得 ${RULES.inviteeBonus} 次行动；TA 第一次撤离成功后，会拿到一条「回执链接」，发回给你，你打开就得 ${RULES.inviterBonus} 次行动（每天最多领 ${RULES.receiptPerDay} 张）。</p>
    <input readonly id="invLink" value="${esc(link)}">
    <div class="tools"><button class="primary" id="invShare">发给好友</button><button class="btn" id="invCopy">复制链接</button></div>
    <p class="resSub">已靠回执拿到奖励：${M.invitesOk} 人。</p>
@@ -2912,73 +3269,116 @@ function createMetaUI({meta,device,touch,refresh}){
   box.querySelector('#invClose').addEventListener('click',closeModal);
   const r=box.querySelector('#rcShare');if(r)r.addEventListener('click',shareReceipt);
  }
- // 设备码和口令是同一件事的两步：先把设备码发给管理员，再把收到的口令贴回来。口令生效后大厅隐藏这个入口（见 render）
+ // 设备码和口令是同一件事的两步：先把设备码发给管理员，再把收到的口令贴回来。
+ // 这里也是粘贴邀请、回执链接的唯一入口（主屏幕 App 带不进 Safari 里点开的链接），所以口令生效后也一直显示
  function openPass(){
-  const M=meta.M,code=fmtDid(M.did);
-  const box=modal(`<div class="res">设备码 / 口令</div>
-   <p class="resSub">设备码是首次打开时随机生成的编号，不含任何个人或设备信息。想要无限次行动：把它发给管理员，收到口令后粘贴到下面。</p>
+  const M=meta.M,code=fmtDid(M.did),pi=meta.passInfo();
+  const box=modal(`<div class="res">口令 / 链接</div>
+   ${pi?`<p class="okline">口令已生效：${pi.until?`${pi.until} 前`:''}无限次行动。续期时把新口令粘贴到下面。</p>`:''}
+   <p class="resSub">收到的口令、邀请链接、回执链接都粘贴到这里。想要无限次行动：把设备码发给管理员，收到口令后粘贴进来。设备码是首次打开时随机生成的编号，不含任何个人或设备信息。</p>
    <input readonly id="didText" value="${code}" style="font:700 20px var(--mono);letter-spacing:.06em;text-align:center">
    <div class="tools"><button class="btn" id="didCopy">复制设备码</button><button class="btn" id="didShare">发给管理员</button></div>
    <textarea id="pasteInput" rows="3" spellcheck="false" placeholder="把口令或链接粘贴到这里"></textarea>
    <div class="tools"><button class="primary" id="pasteOk">确定</button><button class="btn" id="passClose">关闭</button></div>
    <p class="resSub">注意：换手机、换浏览器、清除网站数据，或从 Safari 改用装到主屏幕的 App，设备码都会变，口令需要重发，请在你以后常用的那个 App 里复制设备码。App 和 Safari 的数据也是分开的：在 Safari 里点开的口令、邀请、回执链接不会带进 App，请复制后回到 App 里从这里粘贴。</p>`);
   box.querySelector('#didCopy').addEventListener('click',()=>copyText(code));
-  box.querySelector('#didShare').addEventListener('click',()=>shareOrCopy('暗礁行动 · 设备码',`我的代号：${M.name||'未设置'}，设备码：${code}`,''));
+  box.querySelector('#didShare').addEventListener('click',()=>shareOrCopy('暗礁行动 · 设备码',`我的代号：${M.name}，设备码：${code}`,''));
   const ta=box.querySelector('#pasteInput');if(!touch())setTimeout(()=>ta.focus(),50);   // 触屏不自动弹键盘，免得挡住设备码
   box.querySelector('#pasteOk').addEventListener('click',()=>{const v=ta.value;closeModal();handle(v);});
   box.querySelector('#passClose').addEventListener('click',closeModal);
  }
- function shareScore(){
-  const M=meta.M;if(!M.name){openName();return;}
-  const w=meta.weekStats();
-  shareOrCopy('暗礁行动 · 战绩',`「${M.name}」本周积分 ${w.total}（${w.count} 局，单局最高 ${w.best}）。打开链接把我加进你的好友榜：`,meta.scoreLink());
- }
  function shareReceipt(){shareOrCopy('暗礁行动 · 回执',`我在《暗礁行动》完成了首次撤离！打开这个回执链接，你能得 ${RULES.inviterBonus} 次行动：`,meta.receiptLink());}
 
- /* ---- 状态栏、好友榜、我的战绩 ---- */
+ /* ---- 战绩图 ---- */
+ // 触屏：直接打开系统分享面板（图早已生成好，点击后第一步就是 share）；不支持或被拒时改开预览。电脑：打开预览，主按钮是复制图片
+ async function shareCard(c){
+  if(touch()&&device.canShareFile(c.file)){const s=await device.shareFile(c.file);if(s==='ok'||s==='abort')return;}
+  openCard(c);
+ }
+ // 预览里每个按钮都是一次新的点击；分享失败后不在同一次点击里改去复制（那次点击的授权已经用掉了）
+ function openCard(c){
+  const sh=device.canShareFile(c.file),cp=device.canCopyImage(),t=touch();
+  const btns=(t?[sh&&['cardShare','分享图片'],cp&&['cardCopy','复制图片']]:[cp&&['cardCopy','复制图片'],['cardSave','下载图片'],sh&&['cardShare','分享…']]).filter(Boolean);
+  const box=modal(`<div class="cardPrev"><img class="cardImg" src="${c.url}" alt="战绩图">
+   <div class="cardSide"><div class="res">战绩图</div>
+   <p class="resSub">${t?'长按图片可以保存或转发。':'也可以右键图片另存。'}图上的二维码是你的邀请链接，新玩家扫码进来多得 ${RULES.inviteeBonus} 次行动。在聊天软件里打开时保存不了，请换到系统浏览器。</p>
+   <div class="tools">${btns.map(([id,l],i)=>`<button class="${i?'btn':'primary'}" id="${id}">${l}</button>`).join('')}<button class="btn" id="cardClose">关闭</button></div></div></div>`);
+  const on=(id,f)=>{const b=box.querySelector(id);if(b)b.addEventListener('click',f);};
+  on('#cardShare',async()=>{if(await device.shareFile(c.file)==='fail')toast(t?'没能打开分享，请长按图片保存':'没能打开分享，请复制或下载图片','bad');});
+  on('#cardCopy',async()=>{if(await device.copyImage(c.blob))toast('已复制图片，去聊天窗口粘贴','ok');else toast(t?'复制失败，请长按图片保存':'复制失败，请下载或右键另存','bad');});
+  on('#cardSave',()=>device.download(c.blob,'reef-ops.png'));
+  on('#cardClose',closeModal);
+ }
+
+ /* ---- 状态栏、最近战绩 ---- */
  function render(){
   const M=meta.M;
-  $('myName').textContent=M.name||'未设置';
+  $('myName').textContent=M.name;
   const p=meta.plays(),pi=meta.passInfo(),until=p.unlimited&&pi&&pi.until;
-  $('passBtn').hidden=p.unlimited;                               // 口令生效后不再需要这个入口；到期或作废后重新出现
   $('playsInfo').innerHTML=p.unlimited?`<span class="pill ok">无限次行动${until?` · ${until} 到期`:''}</span>`
    :`<span class="pill${p.free?'':' dim'}">今日免费 ${p.free}/${RULES.freePerDay}</span><span class="pill${p.bonus?' ok':' dim'}">奖励次数 ${p.bonus}</span>`;
-  const {w,rows,stale}=meta.board();
-  $('weekInfo').textContent=`${w.wk} 起 · 每人本周最好 ${RULES.weekTop} 局`;
-  $('board').innerHTML=rows.length?rows.map((r,i)=>`<div class="brow${r.me?' me':''}"><span class="rk">${i+1}</span><span class="bn">${esc(r.n)} <i class="tag">${didTag(r.d)}</i>${r.me?' <small>我</small>':''}</span><span class="bs">${r.ws}</span><span class="bm">${r.c} 局 · 最高 ${r.b}</span></div>`).join('')
-   +(stale?`<p class="note">另有 ${stale} 位好友的战绩还是上周的，让 TA 们再发一次战绩链接。</p>`:'')
-   :'<div class="empty">还没有好友战绩。打完一局后点「分享我的战绩」发到群里，大家互相打开链接就能组成榜单。</div>';
+  const w=meta.weekStats();
+  $('weekInfo').textContent=`本周 ${w.total} 分 · ${w.count} 局（取最好 ${RULES.weekTop} 局）`;
+  $('shareLastBtn').hidden=!card;
   $('myRaids').innerHTML=M.raids.length?M.raids.slice(0,8).map(r=>{const d=new Date(r.t);
    return `<div class="row"><div><div class="n" style="--rc:${r.ok?'#4fc3b8':'#e5484d'}">${r.ok?'撤离':'阵亡'} · ${r.mode==='x'?'机密':'常规'}</div><div class="m">${d.getMonth()+1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())} · 带出 ${fmtK(r.value)} · 击倒 ${r.kills}</div></div><b class="sc">+${r.score}</b></div>`;}).join('')
-   :'<div class="empty">还没有战绩</div>';
+   :'<div class="empty">还没有战绩。打完一局，在结算页生成战绩图发到群里。</div>';
  }
- // 结算页的积分与分享（rec：本局记录，见 core/meta.js record）
+ // 结算页的积分与战绩图（rec：本局记录，见 core/meta.js record；记录出错时为 null）。结算页一出现就开始生成图，点按钮时直接用
  function summary(r,rec){
-  const w=meta.weekStats();
-  $('resScore').innerHTML=`<div class="scoreline"><span>本局积分</span><b>+${rec.score}</b><span>本周积分（最好 ${RULES.weekTop} 局）</span><b>${w.total}</b></div>`;
-  const acts=$('resActions');acts.innerHTML='<button class="btn" id="sumShare">分享战绩</button>';
-  acts.querySelector('#sumShare').addEventListener('click',shareScore);
+  const acts=$('resActions'),w=meta.weekStats(),job=++cardJob;card=null;
+  acts.innerHTML='<button class="btn" id="sumShare" disabled>战绩图生成中…</button>';   // 先重建按钮：后面出错也不会留着上一局的
+  $('resScore').innerHTML=`<div class="scoreline"><span>本局积分</span><b>${rec?'+'+rec.score:'—'}</b><span>本周积分（最好 ${RULES.weekTop} 局）</span><b>${w.total}</b></div>`;
+  const btn=acts.querySelector('#sumShare');
+  btn.addEventListener('click',()=>{if(card)shareCard(card);});
+  makeCard({r,rec,week:w,name:meta.M.name,link:meta.inviteLink(),t:rec?rec.t:Date.now()})
+   .then(c=>{if(job!==cardJob)return;card=c;btn.disabled=false;btn.textContent='分享战绩图';$('shareLastBtn').hidden=false;})
+   .catch(e=>{console.error(e);if(job===cardJob)btn.textContent='战绩图生成失败';});
   if(meta.firstExtraction(r)){
    acts.insertAdjacentHTML('beforeend',`<button class="btn" id="sumRc">给「${esc(meta.M.invitedBy.n)}」发回执（+${RULES.inviterBonus} 次）</button>`);
    acts.querySelector('#sumRc').addEventListener('click',shareReceipt);
   }
  }
  function mount(){
-  $('renameBtn').addEventListener('click',()=>openName());
+  $('renameBtn').addEventListener('click',openName);
   $('inviteBtn').addEventListener('click',openInvite);
   $('passBtn').addEventListener('click',openPass);
-  $('pasteBtn2').addEventListener('click',openPaste);
-  $('shareScoreBtn').addEventListener('click',shareScore);
-  $('modal').addEventListener('click',e=>{if(e.target===$('modal')&&meta.M.name)closeModal();});
+  $('shareLastBtn').addEventListener('click',()=>{if(card)shareCard(card);});
+  $('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal();});
   window.addEventListener('hashchange',readURL);
  }
- return{mount,render,summary,openName,readURL};
+ return{mount,render,summary,readURL};
 }
 
 return Object.freeze({createMetaUI});
 })();
+/* ---- view/orient-ui.js ---- */
+__m[31]=(function(){
+/* ================= 画面方向的按钮：大厅「转横屏 / 转竖屏」、暂停面板里同样的按钮、「玩法」里的三选一 =================
+ 只显示和转发点击；转屏本身在 platform/orient.js，由 app.js 注入的 set(pref) 完成（转屏、重设画布、提示）。 */
+const {V}=__m[12];
+const {$}=__m[18];
+
+// pref()：当前选择 'auto' 跟随手机 | 'land' 横屏 | 'port' 竖屏 · set(p)：改选择
+function createOrientUI({pref,set}){
+ const flip=()=>set(V.W>V.H?'port':'land');   // 快捷按钮：换成和现在画面相反的方向
+ // 按钮文字跟着画面现在的方向；app.js 在转屏和窗口尺寸变化后调
+ function sync(){
+  const t=V.W>V.H?'竖屏':'横屏';$('orientBtn').textContent='转'+t;$('orientBtnP').textContent='切换到'+t;
+  for(const b of document.querySelectorAll('#orientOpts [data-orient]'))b.classList.toggle('on',b.dataset.orient===pref());
+ }
+ function mount(){
+  $('orientBtn').addEventListener('click',flip);$('orientBtnP').addEventListener('click',flip);
+  $('orientOpts').addEventListener('click',e=>{const b=e.target.closest('[data-orient]');if(b)set(b.dataset.orient);});
+  sync();
+ }
+ return{mount,sync};
+}
+
+return Object.freeze({createOrientUI});
+})();
 /* ---- view/install-hint.js ---- */
-__m[28]=(function(){
+__m[32]=(function(){
 /* ================= 「装到主屏幕」提示条（大厅顶部；点「知道了」后不再出现） ================= */
 function mountInstallHint(){
  let dismissed=false;try{dismissed=localStorage.getItem('reef-hint-off')==='1';}catch(_){}
@@ -2999,24 +3399,24 @@ function mountInstallHint(){
 return Object.freeze({mountInstallHint});
 })();
 /* ---- pass-key.js ---- */
-__m[29]=(function(){
+__m[33]=(function(){
 /* 口令公钥（tools/keygen.mjs 生成）。网页只用它核对口令，算不出新口令。 */
 const PASS_PUBKEY='Nyz2iUGOzYEEqxWU6zlroOuWuv-wQfSSpJ9MK-1563k';
 
 return Object.freeze({PASS_PUBKEY});
 })();
 /* ---- pass-revoked.js ---- */
-__m[30]=(function(){
+__m[34]=(function(){
 /* 已作废的口令（签名前 16 位）。tools/pass.mjs --revoke 维护。 */
 const PASS_REVOKED=[];
 
 return Object.freeze({PASS_REVOKED});
 })();
 /* ---- app.js ---- */
-__m[31]=(function(){
+__m[35]=(function(){
 /* ================= 组装与主循环 =================
  唯一把各层连起来的地方：创建存档、设备信息、音效等服务，装上平台输入和界面，负责「大厅 → 对局 → 结算」的切换。
- 各层的分工与依赖方向见 docs/ARCHITECTURE.md。 */
+ 各层的分工与依赖方向见 docs/architecture/index.md。 */
 const {createRng}=__m[0];
 const {createWorld}=__m[3];
 const {createRaid}=__m[4];
@@ -3025,26 +3425,29 @@ const {createMeta,META_KEY}=__m[6];
 const {jsonStore}=__m[7];
 const {createAudio}=__m[8];
 const {verifyEd25519,randomBytes}=__m[9];
-const {keepAwake,canFullscreen,enterFullscreen,share,copy,isStandalone,registerServiceWorker}=__m[10];
+const {keepAwake,canFullscreen,enterFullscreen,lockOrientation,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker}=__m[10];
 const {PLATFORM,MOBILE,switchPlatform}=__m[11];
-const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch}=__m[21];
-const {cv,resize,resetCamera}=__m[13];
-const {render,renderStatic}=__m[23];
-const {createEffects}=__m[24];
-const {createLobby}=__m[25];
-const {createRaidUI}=__m[26];
-const {createMetaUI}=__m[27];
-const {mountInstallHint}=__m[28];
-const {$,toast}=__m[17];
-const {PASS_PUBKEY}=__m[29];
-const {PASS_REVOKED}=__m[30];
+const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient}=__m[22];
+const {cv,resize,resetCamera}=__m[12];
+const {render,renderStatic}=__m[24];
+const {createEffects}=__m[25];
+const {createLobby}=__m[26];
+const {createRaidUI}=__m[27];
+const {createMetaUI}=__m[30];
+const {createOrientUI}=__m[31];
+const {mountInstallHint}=__m[32];
+const {$,toast}=__m[18];
+const {PASS_PUBKEY}=__m[33];
+const {PASS_REVOKED}=__m[34];
 
 document.documentElement.classList.add(PLATFORM);
 const newSeed=()=>(Math.random()*4294967296)>>>0;
 
 /* ---- 服务与核心 ---- */
 const audio=createAudio();
-const device={share,copy,canFullscreen,enterFullscreen,isStandalone};
+// 全屏后锁定的方向跟着画面方向的选择（跟随手机时照旧锁横屏）
+const device={share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,canFullscreen,isStandalone,
+ enterFullscreen:()=>enterFullscreen(ORIENT.pref==='port'?'portrait':'landscape')};
 const profile=createProfile(jsonStore(SAVE_KEY));
 const meta=createMeta({store:jsonStore(META_KEY),now:()=>Date.now(),randomBytes,verify:verifyEd25519,
  pubkey:PASS_PUBKEY,revoked:PASS_REVOKED,baseURL:()=>location.origin+location.pathname});
@@ -3057,6 +3460,15 @@ const refresh=()=>{lobby.render();metaUI.render();};
 const lobby=createLobby({profile,meta,mobile:MOBILE,device,deploy,switchPlatform,refresh});
 const metaUI=createMetaUI({meta,device,touch:()=>active().touch,refresh});
 const raidUI=createRaidUI({getRaid,back:backToLobby});
+const orientUI=createOrientUI({pref:()=>ORIENT.pref,set:setOrientation});
+
+/* ---- 画面方向：转屏（platform/orient.js）、按新尺寸重设画布、同步按钮；能锁系统方向的环境（全屏、装成 App）顺便锁上 ---- */
+function setOrientation(p){
+ const rot=setOrient(p);resize(active());orientUI.sync();
+ lockOrientation(p==='land'?'landscape':p==='port'?'portrait':null);
+ toast(rot===90?'已切到横屏：把手机横过来（顶部朝左）':rot===-90?'已切到竖屏：把手机竖过来':p==='land'?'画面固定横屏':p==='port'?'画面固定竖屏':'画面方向跟随手机');
+}
+function onResize(){applyOrient();resize(active());orientUI.sync();}
 
 /* ---- 大厅 → 对局 → 结算 ---- */
 function deploy(){
@@ -3078,7 +3490,7 @@ function showSummary(r,rec){
  app.screen='summary';leaveRaid();keepAwake(false);
  raidUI.showSummary(r);
  try{metaUI.summary(r,rec);}catch(e){console.error(e);}
- $('summary').hidden=false;
+ $('summary').hidden=false;$('summary').firstElementChild.scrollTop=0;   // 结算框是复用的，会记着上一局滚到的位置
 }
 function backToLobby(){$('summary').hidden=true;app.raid=null;app.screen='lobby';$('lobby').hidden=false;refresh();}
 
@@ -3106,12 +3518,12 @@ function start(data){
  let coarse=false;try{coarse=matchMedia('(pointer: coarse)').matches;}catch(_){}
  useTouch(coarse||MOBILE,true);
  meta.load();
- lobby.mount();raidUI.mount();metaUI.mount();
- resize(active());app.bg=createWorld('n',createRng(newSeed()));renderStatic(app.bg);refresh();requestAnimationFrame(loop);
- meta.refreshPass().then(()=>{refresh();metaUI.readURL();if(!meta.M.name&&$('modal').hidden)metaUI.openName();});
+ lobby.mount();raidUI.mount();metaUI.mount();orientUI.mount();
+ applyOrient();resize(active());orientUI.sync();app.bg=createWorld('n',createRng(newSeed()));renderStatic(app.bg);refresh();requestAnimationFrame(loop);
+ meta.refreshPass().then(()=>{refresh();metaUI.readURL();});
  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(app.screen!=='raid')renderStatic(app.bg);});
 }
-window.addEventListener('resize',()=>resize(active()));
+window.addEventListener('resize',onResize);
 
 /* ---- PWA：离线缓存；从主屏幕打开时不再提示安装 ---- */
 registerServiceWorker();
