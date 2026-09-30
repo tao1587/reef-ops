@@ -1029,33 +1029,33 @@ const iVal=id=>ITEMS[id][3];
 const iCat=id=>ITEMS[id][4];
 
 /* ---- gear ---- */
+// 武器：sp 散布（最大偏角 rad）；rng 射程（px，从枪口算，子弹飞这么远就消失）；距离衰减：离枪口 fd px 以内满伤害，之后线性降到射程末端的 fm 倍（core/raid.js falloff）
 const WEAPONS={
- p9:{n:'P9 手枪',dmg:26,rpm:380,mag:15,sp:0.045,spd:1500,pen:2,rel:1.3,rng:760,price:0,semi:1,pel:1,len:14},
- smg:{n:'V45 冲锋枪',dmg:22,rpm:800,mag:32,sp:0.075,spd:1450,pen:3,rel:2.0,rng:760,price:16000,pel:1,len:20},
- sg:{n:'M12 霰弹枪',dmg:15,rpm:78,mag:6,sp:0.17,spd:1250,pen:2,rel:2.8,rng:480,price:24000,pel:8,len:22},
- ar:{n:'K7 突击步枪',dmg:31,rpm:620,mag:30,sp:0.042,spd:1700,pen:4,rel:2.4,rng:1050,price:42000,pel:1,len:25},
- dmr:{n:'R30 精确射手步枪',dmg:74,rpm:170,mag:10,sp:0.012,spd:2200,pen:5,rel:2.7,rng:1350,price:68000,semi:1,pel:1,len:29}
+ p9:{n:'P9 手枪',dmg:26,rpm:380,mag:15,sp:0.045,spd:1500,pen:2,rel:1.3,rng:760,fd:250,fm:.55,price:0,semi:1,pel:1,len:14},
+ smg:{n:'V45 冲锋枪',dmg:22,rpm:800,mag:32,sp:0.075,spd:1450,pen:3,rel:2.0,rng:760,fd:250,fm:.55,price:16000,pel:1,len:20},
+ sg:{n:'M12 霰弹枪',dmg:15,rpm:78,mag:6,sp:0.17,spd:1250,pen:2,rel:2.8,rng:480,fd:120,fm:.3,price:24000,pel:8,len:22},
+ ar:{n:'K7 突击步枪',dmg:31,rpm:620,mag:30,sp:0.042,spd:1700,pen:4,rel:2.4,rng:1050,fd:400,fm:.7,price:42000,pel:1,len:25},
+ dmr:{n:'R30 精确射手步枪',dmg:74,rpm:170,mag:10,sp:0.012,spd:2200,pen:5,rel:2.7,rng:1350,fd:600,fm:.85,price:68000,semi:1,pel:1,len:29}
 };
 const ARMORS={
  none:{n:'无护甲',lvl:0,dur:0,price:0},a2:{n:'二级防弹衣',lvl:2,dur:55,price:7000},a3:{n:'三级防弹衣',lvl:3,dur:80,price:20000},
  a4:{n:'四级战术背心',lvl:4,dur:100,price:46000},a5:{n:'五级重型护甲',lvl:5,dur:125,price:88000,slow:.9}
 };
-const HELMETS={none:{n:'无头盔',lvl:0,dur:0,price:0},h2:{n:'二级头盔',lvl:2,dur:30,price:4500},h3:{n:'三级头盔',lvl:3,dur:42,price:13000},h4:{n:'四级头盔',lvl:4,dur:55,price:30000}};
 const BAGS={none:{n:'胸挂口袋',cap:8,price:0},b1:{n:'小型背包',cap:16,price:5500},b2:{n:'战术背包',cap:26,price:15000},b3:{n:'大型登山包',cap:38,price:29000}};
 const MEDS={band:{n:'绷带',heal:22,t:1.8,price:700},kit:{n:'急救包',heal:65,t:4,price:3200}};
 const PLATE={fix:40,t:3};   // 陶瓷插板（物品 plate）：局内在背包里「使用」，防弹衣耐久 +40（不超过上限），用时 3 秒
 const SAFE_CAP=2;
-function gearPrice(id){return (WEAPONS[id]||ARMORS[id]||HELMETS[id]||BAGS[id]||{price:0}).price;}
+function gearPrice(id){return (WEAPONS[id]||ARMORS[id]||BAGS[id]||{price:0}).price;}
 
 /* ---- modes: 限时（秒）与入场配装要求 ---- */
 const MODES={n:{time:600,minKit:0},x:{time:720,minKit:60000}};
 
 /* ---- enemies ---- */
 const EK={
- scav:{n:'散兵',hp:80,sight:560,react:.75,acc:.11,spd:92,guns:['p9','smg','sg','p9','smg'],arm:['none','none','a2'],hel:['none','h2'],pref:260,col:'#b86a4e'},
- merc:{n:'雇佣兵',hp:100,sight:680,react:.45,acc:.066,spd:104,guns:['ar','smg','ar','dmr'],arm:['a3','a4'],hel:['h3','h4'],pref:360,col:'#cf4a43'},
- guard:{n:'近卫',hp:110,sight:700,react:.4,acc:.06,spd:100,guns:['ar','sg'],arm:['a4'],hel:['h4'],pref:280,col:'#cf4a43'},
- boss:{n:'铁锚',hp:340,sight:760,react:.3,acc:.05,spd:96,guns:['ar'],arm:['a5'],hel:['h4'],pref:300,col:'#e7a53c'}
+ scav:{n:'散兵',hp:80,sight:560,react:.75,acc:.11,spd:92,guns:['p9','smg','sg','p9','smg'],arm:['none','none','a2'],pref:260,col:'#b86a4e'},
+ merc:{n:'雇佣兵',hp:100,sight:680,react:.45,acc:.066,spd:104,guns:['ar','smg','ar','dmr'],arm:['a3','a4'],pref:360,col:'#cf4a43'},
+ guard:{n:'近卫',hp:110,sight:700,react:.4,acc:.06,spd:100,guns:['ar','sg'],arm:['a4'],pref:280,col:'#cf4a43'},
+ boss:{n:'铁锚',hp:340,sight:760,react:.3,acc:.05,spd:96,guns:['ar'],arm:['a5'],pref:300,col:'#e7a53c'}
 };
 
 /* ---- loot containers ---- */
@@ -1087,7 +1087,7 @@ function rollLoot(type,mode,rng){
  return out;
 }
 
-return Object.freeze({RC,RN,REVEAL,ITEMS,BY_R,iName,iR,iSize,iVal,iCat,WEAPONS,ARMORS,HELMETS,BAGS,MEDS,PLATE,SAFE_CAP,gearPrice,MODES,EK,CONT,CONT_GLYPH,rollItem,rollLoot});
+return Object.freeze({RC,RN,REVEAL,ITEMS,BY_R,iName,iR,iSize,iVal,iCat,WEAPONS,ARMORS,BAGS,MEDS,PLATE,SAFE_CAP,gearPrice,MODES,EK,CONT,CONT_GLYPH,rollItem,rollLoot});
 })();
 /* ---- core/world.js ---- */
 __m[3]=(function(){
@@ -1361,7 +1361,7 @@ __m[4]=(function(){
  - 玩家命令（键盘和触屏按钮共用）：raid.command('inv' | 'back' | 'interact' | 'reload' | 'heal' | 'map')；背包里的陶瓷插板由界面调 raid.usePlate(i)。
  - 对局结束时发 {type:'end', result}；存档结算、记录积分由外层做（core/profile.js、core/meta.js）。 */
 const {TAU,clamp,angDiff}=__m[1];
-const {BY_R,REVEAL,WEAPONS,ARMORS,HELMETS,BAGS,MEDS,PLATE,SAFE_CAP,MODES,EK,iR,iSize,iVal,rollItem}=__m[2];
+const {BY_R,REVEAL,WEAPONS,ARMORS,BAGS,MEDS,PLATE,SAFE_CAP,MODES,EK,iR,iSize,iVal,rollItem}=__m[2];
 const {createWorld,segCirc}=__m[3];
 
 const VIS_R=760;
@@ -1369,14 +1369,14 @@ const AREAS={hq:{x:1134,y:194,w:752,h:492},wh:{x:94,y:124,w:612,h:800},dock:{x:1
  tank:{x:2170,y:1170,w:780,h:880},north:{x:800,y:40,w:300,h:950},office:{x:1850,y:1220,w:260,h:530},road:{x:40,y:1000,w:2920,h:130}};
 function fighter(x,y,o){return Object.assign({x,y,r:14,a:0,hp:100,maxhp:100,cd:0,reload:0,flash:0,hitT:0,dead:false},o);}
 
-// loadout：{w, a, h, b, meds:{band, kit}, value}（见 core/profile.js loadout()）；diff：敌人反应与枪法的放宽倍数（手机版 1.15）
+// loadout：{w, a, b, meds:{band, kit}, value}（见 core/profile.js loadout()）；diff：敌人反应与枪法的放宽倍数（手机版 1.15）
 function createRaid({mode,loadout,rng,diff=1}){
  const {rnd,ri,pick,gauss,random}=rng;
  const world=createWorld(mode,rng),conts=world.conts,{castSeg,losClear,fireClear,moveEnt,findPath,randFree}=world;
  const eq=loadout,W=WEAPONS[eq.w],sp=pick(world.spawns),T=MODES[mode].time;
  let near=world.extracts[0];for(const x of world.extracts)if(Math.hypot(x.x-sp.x,x.y-sp.y)<Math.hypot(near.x-sp.x,near.y-sp.y))near=x;
  const pool=world.extracts.filter(x=>x!==near).sort(()=>random()-.5);
- const pl=fighter(sp.x,sp.y,{wid:eq.w,w:W,mag:W.mag,ammo:W.mag*4,armor:{...ARMORS[eq.a],cur:ARMORS[eq.a].dur},helmet:{...HELMETS[eq.h],cur:HELMETS[eq.h].dur},
+ const pl=fighter(sp.x,sp.y,{wid:eq.w,w:W,mag:W.mag,ammo:W.mag*4,armor:{...ARMORS[eq.a],cur:ARMORS[eq.a].dur},
   bag:[],bagId:eq.b,cap:BAGS[eq.b].cap,safe:[],meds:{band:eq.meds.band,kit:eq.meds.kit},stam:100,heal:null,fix:null,trig:true,moving:false,sprinting:false,a:-Math.PI/2});
  const G={mode,t:0,T,time:T,world,pl,enemies:[],bullets:[],events:[],kills:0,killed:{},extT:0,ext:pool.slice(0,2),extZone:null,
   lootC:null,lootVer:0,near:null,paused:false,over:false,result:null,zone:'',zoneCk:0,valueIn:eq.value,bigMap:false,invOpen:false,stepT:0,plateTip:false};
@@ -1389,8 +1389,8 @@ function createRaid({mode,loadout,rng,diff=1}){
 
  /* ---- spawning ---- */
  function spawnEnemy(kind,x,y,home){
-  const d=EK[kind],gid=pick(d.guns),Wp=WEAPONS[gid],A=ARMORS[pick(d.arm)],H=HELMETS[pick(d.hel)];
-  G.enemies.push(fighter(x,y,{kind,d,hp:d.hp,maxhp:d.hp,wid:gid,w:Wp,mag:Wp.mag,armor:{lvl:A.lvl,cur:A.dur,dur:A.dur},helmet:{lvl:H.lvl,cur:H.dur,dur:H.dur},
+  const d=EK[kind],gid=pick(d.guns),Wp=WEAPONS[gid],A=ARMORS[pick(d.arm)];
+  G.enemies.push(fighter(x,y,{kind,d,hp:d.hp,maxhp:d.hp,wid:gid,w:Wp,mag:Wp.mag,armor:{lvl:A.lvl,cur:A.dur,dur:A.dur},
    state:'patrol',home:home||{x,y},path:null,wait:rnd(0,3),react:0,alert:0,lostT:0,strafe:random()<.5?1:-1,strafeT:rnd(1,2.5),burst:0,
    losT:random()*.2,sees:false,vis:false,lastSeen:null,target:null,stuckT:0,searchT:0,a:rnd(0,TAU),roam:kind==='boss'?110:kind==='guard'?150:380}));
  }
@@ -1479,8 +1479,9 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(castSeg(e.x,e.y,sx,sy,'bb')<1){sx=e.x;sy=e.y;}
   const mul=isP&&e.moving?1.5:1;   // 玩家奔跑时开不了火（updatePlayer），走动时散布 ×1.5；键鼠准星按同一倍数张开（platform/desktop/hud.js）
   for(let i=0;i<Wp.pel;i++){
-   const a=e.a+(isP?gauss()*Wp.sp*mul:err+gauss()*Wp.sp*.7);
-   G.bullets.push({x:sx,y:sy,px:sx,py:sy,vx:Math.cos(a)*Wp.spd,vy:Math.sin(a)*Wp.spd,dmg:Wp.dmg,pen:Wp.pen,life:Wp.rng/Wp.spd,own:isP?'p':'e',src:e});
+   // 多弹丸：散布角均分成 pel 份，每颗在自己那份里随机，铺满整个散布角，离远了只中几颗（用 gauss 会挤在中间，中距离也几乎全中）
+   const dv=Wp.pel>1?(i+random())*2/Wp.pel-1:gauss(),a=e.a+(isP?dv*Wp.sp*mul:err+dv*Wp.sp*.7);
+   G.bullets.push({x:sx,y:sy,px:sx,py:sy,ox:sx,oy:sy,vx:Math.cos(a)*Wp.spd,vy:Math.sin(a)*Wp.spd,w:Wp,life:Wp.rng/Wp.spd,own:isP?'p':'e',src:e});
   }
   e.flash=.05;
   emit('shot',{x:sx,y:sy,a:e.a,p:isP,w:Wp,d:isP?0:Math.hypot(e.x-pl.x,e.y-pl.y)});
@@ -1580,11 +1581,11 @@ function createRaid({mode,loadout,rng,diff=1}){
   }
  }
  function hitEntity(e,b,hx,hy){
-  const head=random()<(e===pl?.1:.15),prot=head?e.helmet:e.armor;
-  let d=b.dmg*(head?1.9:1);
-  if(prot&&prot.lvl>0&&prot.cur>0){
-   const df=b.pen-prot.lvl,pass=df>=1?.85:df===0?.6:df===-1?.32:.18;
-   prot.cur=Math.max(0,prot.cur-b.dmg*(b.pen>=prot.lvl?1.1:.75));d*=pass;
+  // 俯视角没有命中部位：全由防弹衣防护。伤害和扣耐久都按距离衰减后的算（离枪口的直线距离）
+  const w=b.w,dmg=w.dmg*falloff(w,Math.hypot(hx-b.ox,hy-b.oy)),prot=e.armor;let d=dmg;
+  if(prot.lvl>0&&prot.cur>0){
+   const df=w.pen-prot.lvl,pass=df>=1?.85:df===0?.6:df===-1?.32:.18;
+   prot.cur=Math.max(0,prot.cur-dmg*(w.pen>=prot.lvl?1.1:.75));d*=pass;
    if(e===pl)emit('armor');
   }
   e.hp-=d;e.hitT=.15;
@@ -1594,7 +1595,7 @@ function createRaid({mode,loadout,rng,diff=1}){
    emit('hurt',{a:Math.atan2(b.src.y-pl.y,b.src.x-pl.x)});
    if(pl.hp<=0){pl.hp=0;pl.dead=true;pl.heal=null;pl.fix=null;emit('die');end(false,`被${b.src.d.n}击杀`);}
   }else{
-   emit('hit',{head});alertEnemy(e,pl.x,pl.y);
+   emit('hit');alertEnemy(e,pl.x,pl.y);
    if(e.hp<=0)killEnemy(e);
   }
  }
@@ -1714,6 +1715,9 @@ function createRaid({mode,loadout,rng,diff=1}){
   abandon(){if(G.over)return;G.paused=false;pl.dead=true;end(false,'主动放弃行动');}});
 }
 
+// 距离衰减倍数：离枪口 w.fd 以内为 1，之后线性降到射程 w.rng 处的 w.fm；子弹最多多飞一帧，超出射程也按 fm 算
+function falloff(w,dist){return 1-(1-w.fm)*clamp((dist-w.fd)/(w.rng-w.fd),0,1);}
+
 // 0/1 背包：ids 是物品 id，在 free 格内挑总价值最高的一组，返回选中的下标（升序）。按剩余格数做动态规划，地上一大堆物资也不慢
 function bestFit(ids,free){
  let best=new Array(Math.max(0,free)+1).fill(0);const keep=[];
@@ -1725,21 +1729,21 @@ function bestFit(ids,free){
  return out.reverse();
 }
 
-return Object.freeze({VIS_R,createRaid,bestFit});
+return Object.freeze({VIS_R,createRaid,falloff,bestFit});
 })();
 /* ---- core/profile.js ---- */
 __m[5]=(function(){
 /* ================= 存档：资金、仓库、配装、战绩统计 =================
  规则在这里（买装备、带药、卖物资、对局结算）；读写本机存储由外层注入 store：{load() → 对象或 null, save(对象)}。 */
-const {ITEMS,MEDS,MODES,WEAPONS,ARMORS,HELMETS,BAGS,gearPrice,iVal}=__m[2];
+const {ITEMS,MEDS,MODES,WEAPONS,ARMORS,BAGS,gearPrice,iVal}=__m[2];
 
 const SAVE_KEY='reef-ops-save-v1';
 const MED_CAP=8;   // 每种医疗品最多存 8 个：大厅买、撤离带回都截在这里
 function newSave(){return{money:150000,stash:['watch','gpu','coffee','screw','radio','manifest'],
- owned:{smg:1,a2:1,h2:1,b1:1},equip:{w:'smg',a:'a2',h:'h2',b:'b1'},meds:{band:3,kit:1},medBuy:{band:0,kit:0},
+ owned:{smg:1,a2:1,b1:1},equip:{w:'smg',a:'a2',b:'b1'},meds:{band:3,kit:1},medBuy:{band:0,kit:0},
  stats:{raids:0,ext:0,kills:0,best:0},mode:'n'};}
-const SLOTS={w:WEAPONS,a:ARMORS,h:HELMETS,b:BAGS};
-function kitValue(S){const e=S.equip;return gearPrice(e.w)+gearPrice(e.a)+gearPrice(e.h)+gearPrice(e.b)+S.meds.band*MEDS.band.price+S.meds.kit*MEDS.kit.price;}
+const SLOTS={w:WEAPONS,a:ARMORS,b:BAGS};
+function kitValue(S){const e=S.equip;return gearPrice(e.w)+gearPrice(e.a)+gearPrice(e.b)+S.meds.band*MEDS.band.price+S.meds.kit*MEDS.kit.price;}
 
 function createProfile(store){
  let S=newSave();
@@ -1777,12 +1781,12 @@ function createProfile(store){
   sellWhere(fn){let got=0;S.stash=S.stash.filter(id=>{if(ITEMS[id]&&fn(id)){got+=iVal(id);return false;}return true;});S.money+=got;persist();},
   reset(){S=newSave();persist();},
   // 带进对局的东西（core/raid.js createRaid 的 loadout）
-  loadout(){const e=S.equip;return{w:e.w,a:e.a,h:e.h,b:e.b,meds:{band:S.meds.band,kit:S.meds.kit},value:kitValue(S)};},
+  loadout(){const e=S.equip;return{w:e.w,a:e.a,b:e.b,meds:{band:S.meds.band,kit:S.meds.kit},value:kitValue(S)};},
   // 对局结算：撤离成功带回背包物资和剩余医疗品（每种截到 MED_CAP，多的丢掉）；失败丢掉全部配装，只保住安全箱。出过一局，之前买的药就不能再退
   settle(r){
    S.stats.raids++;S.stats.kills+=r.kills;S.medBuy={band:0,kit:0};
    if(r.ok){S.stats.ext++;for(const k in MEDS)S.meds[k]=Math.min(MED_CAP,r.meds[k]);}
-   else{for(const k of ['w','a','h','b']){const id=S.equip[k];if(gearPrice(id)>0){S.owned[id]=Math.max(0,(S.owned[id]||0)-1);if(!S.owned[id])S.equip[k]=bestOwned(k);}}S.meds.band=0;S.meds.kit=0;}
+   else{for(const k in SLOTS){const id=S.equip[k];if(gearPrice(id)>0){S.owned[id]=Math.max(0,(S.owned[id]||0)-1);if(!S.owned[id])S.equip[k]=bestOwned(k);}}S.meds.band=0;S.meds.kit=0;}
    S.stash.push(...r.items);S.stats.best=Math.max(S.stats.best,r.value);persist();
   }
  };
@@ -1993,7 +1997,6 @@ function createAudio(){
  }
  const sfx={
   hit:()=>tone(1500,.05,'square',.06),
-  head:()=>{tone(2100,.06,'square',.07);tone(2800,.08,'square',.05,0,.04);},
   kill:()=>{tone(900,.08,'triangle',.12);tone(1350,.14,'triangle',.1,0,.07);},
   hurt:()=>{tone(120,.2,'sawtooth',.14,.5);shot(.12,500,.12,0);},
   armor:()=>tone(620,.06,'square',.06,1.4),
@@ -2269,7 +2272,7 @@ function drawHUD(G,fx,PF){
   const ex=W/2+Math.cos(a)*r,ey=P.avoid(ex,H/2+Math.sin(a)*r);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#e5484d';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,7);ctx.lineTo(-6,-7);ctx.fill();ctx.restore();}
  P.aim(G,ps);
  if(fx.hitMark>0){const hp=P.hitPos(G,ps),hx=hp.x,hy=hp.y,s=fx.hitMark*40;
-  ctx.strokeStyle=fx.hitHead?'#e5484d':'#fff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(hx-s,hy-s);ctx.lineTo(hx-s/2,hy-s/2);ctx.moveTo(hx+s,hy-s);ctx.lineTo(hx+s/2,hy-s/2);ctx.moveTo(hx-s,hy+s);ctx.lineTo(hx-s/2,hy+s/2);ctx.moveTo(hx+s,hy+s);ctx.lineTo(hx+s/2,hy+s/2);ctx.stroke();}
+  ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(hx-s,hy-s);ctx.lineTo(hx-s/2,hy-s/2);ctx.moveTo(hx+s,hy-s);ctx.lineTo(hx+s/2,hy-s/2);ctx.moveTo(hx-s,hy+s);ctx.lineTo(hx-s/2,hy+s/2);ctx.moveTo(hx+s,hy+s);ctx.lineTo(hx+s/2,hy+s/2);ctx.stroke();}
  if(pl.dead){txt('阵亡',W/2,H/2,`800 64px ${F_DISP}`,'#e5484d','center','middle');}
  if(G.bigMap)drawBigMap(G,PF);
 }
@@ -2340,11 +2343,9 @@ function drawVitals(p,x,y,w,lag){
  const hp=Math.ceil(p.hp);
  txt('生命',x+12,y+20,`600 11px ${F_BODY}`,'#82939a');txt(String(hp),x+w-12,y+20,`700 15px ${F_MONO}`,hpCol(hp),'right');
  hpBar(x+12,y+26,w-24,8,p,p.dead?0:lag,true);
- const ar=p.armor,he=p.helmet,hw=(w-36)/2;
- txt(ar.lvl?`护甲 ${ar.lvl}级`:'无护甲',x+12,y+52,`600 11px ${F_BODY}`,'#82939a');if(ar.lvl)txt(Math.ceil(ar.cur)+'',x+12+hw,y+52,`600 11px ${F_MONO}`,'#4f95e6','right');
- protBar(x+12,y+57,hw,4,ar,p.fix);
- txt(he.lvl?`头盔 ${he.lvl}级`:'无头盔',x+24+hw,y+52,`600 11px ${F_BODY}`,'#82939a');if(he.lvl)txt(Math.ceil(he.cur)+'',x+w-12,y+52,`600 11px ${F_MONO}`,'#4f95e6','right');
- bar(x+24+hw,y+57,hw,4,he.lvl?he.cur/he.dur:0,'#4f95e6');
+ const ar=p.armor;
+ txt(ar.lvl?`护甲 ${ar.lvl}级`:'无护甲',x+12,y+52,`600 11px ${F_BODY}`,'#82939a');if(ar.lvl)txt(Math.ceil(ar.cur)+'',x+w-12,y+52,`600 11px ${F_MONO}`,'#4f95e6','right');
+ protBar(x+12,y+57,w-24,4,ar,p.fix);
  bar(x+12,y+70,w-24,2,p.stam/100,'#f0a43a');
  const pc=p.bag.filter(id=>id==='plate').length;   // 背包里的陶瓷插板（Tab 打开背包「使用」修防弹衣）
  txt(`绷带 ${p.meds.band} · 急救包 ${p.meds.kit}`+(pc?` · 插板 ${pc}`:''),x+12,y+92,`600 12px ${F_BODY}`,'#62c46f');
@@ -2593,19 +2594,18 @@ function drawTouchPanel(G,x,y,lag){
  const bv=G.bagValue(),bag=()=>txt(`背包 ${G.bagUsed()}/${p.cap} · ${fmtK(bv)}`,x+10,y+h-8,`600 11px ${F_BODY}`,bv>=100000?'#f2c14e':'#d9e1de');
  if(!port){bag();return;}
  hpBar(x+10,y+54,w-44,8,p,lag,true);txt(String(hp),x+w-10,y+62,`700 13px ${F_MONO}`,hpCol(hp),'right');
- const hw=(w-26)/2,ar=p.armor,he=p.helmet;
- txt(ar.lvl?`甲${ar.lvl} ${Math.ceil(ar.cur)}`:'无护甲',x+10,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');protBar(x+10,y+83,hw,3,ar,p.fix);
- txt(he.lvl?`盔${he.lvl} ${Math.ceil(he.cur)}`:'无头盔',x+16+hw,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');bar(x+16+hw,y+83,hw,3,he.lvl?he.cur/he.dur:0,'#4f95e6');
+ const ar=p.armor;
+ txt(ar.lvl?`甲${ar.lvl} ${Math.ceil(ar.cur)}`:'无护甲',x+10,y+79,`600 10.5px ${F_BODY}`,'#4f95e6');protBar(x+10,y+83,w-20,3,ar,p.fix);
  bar(x+10,y+91,w-20,2,p.stam/100,'#f0a43a');
  bag();
 }
-// 横屏底部生命条：左边大号数字，每 10 点一格；体力没满时在生命条下面画一道；下面一行护甲、头盔
+// 横屏底部生命条：左边大号数字，每 10 点一格；体力没满时在生命条下面画一道；下面一行护甲
 function drawVitals(p,{x,y,w,h},lag){
  const hp=Math.ceil(p.hp),bx=x+44,bw=w-54;panel(x,y,w,h);
  txt(String(hp),x+10,y+19,`700 16px ${F_MONO}`,hpCol(hp));
  hpBar(bx,y+8,bw,10,p,p.dead?0:lag,true);
  if(p.stam<100)bar(bx,y+21,bw,2,p.stam/100,'#f0a43a');
- const gw=(w-30)/2;prot(p.armor,'甲','无护甲',x+10,y+h-7,gw,p.fix);prot(p.helmet,'盔','无头盔',x+20+gw,y+h-7,gw,null);
+ prot(p.armor,'甲','无护甲',x+10,y+h-7,w-20,p.fix);
 }
 function prot(a,k,none,x,y,w,fix){
  if(!a.lvl){txt(none,x,y,`600 10.5px ${F_BODY}`,'#82939a');return;}
@@ -2879,7 +2879,7 @@ function drawSoldier(e,col,pl){
  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,0,e.r*.78,e.r*1.08,0,0,TAU);ctx.fill();
  ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(-e.r*.5,-e.r*.7,e.r*.7,e.r*1.4);
  ctx.fillStyle=col;ctx.beginPath();ctx.arc(e.r*.6,e.r*.55,4,0,TAU);ctx.arc(e.r*.9,-e.r*.1,4,0,TAU);ctx.fill();
- ctx.fillStyle=e.helmet&&e.helmet.lvl>0?'#3c4a40':'#c49c78';ctx.beginPath();ctx.arc(0,0,e.r*.52,0,TAU);ctx.fill();
+ ctx.fillStyle=e.armor.lvl>0?'#3c4a40':'#c49c78';ctx.beginPath();ctx.arc(0,0,e.r*.52,0,TAU);ctx.fill();
  if(e.kind==='boss'){ctx.strokeStyle='#f2c14e';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,e.r+5,0,TAU);ctx.stroke();}
  if(e.hitT>0){ctx.fillStyle=`rgba(255,255,255,${e.hitT*4})`;ctx.beginPath();ctx.arc(0,0,e.r,0,TAU);ctx.fill();}
  ctx.restore();
@@ -2898,8 +2898,8 @@ const {clamp}=__m[1];
 
 const rnd=(a,b)=>a+Math.random()*(b-a);
 function createEffects(audio){
- const S={fx:[],decals:[],msgs:[],hurt:[],hitMark:0,hitHead:false,shake:0,zone:'',zoneT:0,lag:null,hpWas:0,lagT:0};
- function reset(){Object.assign(S,{fx:[],decals:[],msgs:[],hurt:[],hitMark:0,hitHead:false,shake:0,zone:'',zoneT:0,lag:null,hpWas:0,lagT:0});}
+ const S={fx:[],decals:[],msgs:[],hurt:[],hitMark:0,shake:0,zone:'',zoneT:0,lag:null,hpWas:0,lagT:0};
+ function reset(){Object.assign(S,{fx:[],decals:[],msgs:[],hurt:[],hitMark:0,shake:0,zone:'',zoneT:0,lag:null,hpWas:0,lagT:0});}
  function say(t,c,life){S.msgs.push({t,c:c||'#d9e1de',life:life||4});if(S.msgs.length>6)S.msgs.shift();}
  // PF：当前平台对象（受击时由它决定要不要震动）
  function handle(ev,PF){
@@ -2914,7 +2914,7 @@ function createEffects(audio){
    case'blood':S.decals.push({x:ev.x+rnd(-6,6),y:ev.y+rnd(-6,6),r:rnd(3,7)});if(S.decals.length>240)S.decals.shift();
     S.fx.push({k:'blood',x:ev.x,y:ev.y,a:ev.a,t:.25,T:.25});break;
    case'hurt':sfx.hurt();S.shake=Math.min(10,S.shake+5);PF.hurt();S.hurt.push({a:ev.a,t:1.3});break;
-   case'hit':ev.head?sfx.head():sfx.hit();S.hitMark=.25;S.hitHead=ev.head;break;
+   case'hit':sfx.hit();S.hitMark=.25;break;
    case'reveal':sfx.reveal(ev.r);break;
    case'extract':sfx.ext();break;
    case'fix':sfx.heal();break;   // 修甲完成和治疗完成同一个音
@@ -2940,10 +2940,10 @@ __m[27]=(function(){
 /* ================= 大厅：资金、配装、仓库、模式与出发（两个平台共用的 DOM 界面） =================
  只负责显示和收集点击；买卖、配装等规则在 core/profile.js，次数在 core/meta.js。 */
 const {fmt,fmtK}=__m[1];
-const {WEAPONS,ARMORS,HELMETS,BAGS,MEDS,ITEMS,MODES,RC,iName,iR,iSize,iVal}=__m[2];
+const {WEAPONS,ARMORS,BAGS,MEDS,ITEMS,MODES,RC,iName,iR,iSize,iVal}=__m[2];
 const {$,armConfirm}=__m[20];
 
-const GROUPS=[['w','主武器',WEAPONS],['a','防弹衣',ARMORS],['h','头盔',HELMETS],['b','背包',BAGS]];
+const GROUPS=[['w','主武器',WEAPONS],['a','防弹衣',ARMORS],['b','背包',BAGS]];
 // profile / meta：存档与设备信息 · mobile：手机版布局 · device：全屏等设备能力 · deploy()：开始行动 · switchPlatform(p)：切换界面版本 · refresh()：重画大厅
 function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh}){
  function render(){
@@ -3061,13 +3061,12 @@ function createRaidUI({getRaid,back}){
   $('bagLbl').textContent=`${BAGS[pl.bagId].n} · ${bu}/${pl.cap} 格 · ${fmt(pl.bag.reduce((s,id)=>s+iVal(id),0))}`;
   $('bagCap').style.width=(bu/pl.cap*100)+'%';
   // 陶瓷插板多一个「使用」键（修防弹衣）；用不了时写明原因并禁用，免得点了没反应（提示消息画在画布上，会被背包盖住）
-  const a=pl.armor,h=pl.helmet,why=!a.lvl?'无防弹衣':a.cur>=a.dur?'护甲已满':pl.heal?'正在治疗':pl.fix?'正在修甲':'';
+  const a=pl.armor,why=!a.lvl?'无防弹衣':a.cur>=a.dur?'护甲已满':pl.heal?'正在治疗':pl.fix?'正在修甲':'';
   const use=(id,i)=>id!=='plate'?'':`<button class="sm" data-a="use" data-i="${i}"${why?' disabled':''}>${why||`使用 · 护甲 +${PLATE.fix}`}</button>`;
   $('bagList').innerHTML=pl.bag.length?pl.bag.map((id,i)=>rowHTML(id,i,`${use(id,i)}${su+iSize(id)<=SAFE_CAP?`<button class="sm" data-a="safe" data-i="${i}">放入安全箱</button>`:''}<button class="sm" data-a="drop" data-i="${i}">丢弃</button>`)).join(''):'<div class="empty">背包是空的</div>';
   $('safeLbl').textContent=`安全箱 · ${su}/${SAFE_CAP} 格 · 阵亡保留`;$('safeCap').style.width=(su/SAFE_CAP*100)+'%';
   $('safeList').innerHTML=pl.safe.length?pl.safe.map((id,i)=>rowHTML(id,i,`<button class="sm" data-a="unsafe" data-i="${i}">放回背包</button>`)).join(''):'<div class="empty">放入 1–2 格的高价值物品，阵亡也不会丢</div>';
-  $('gearKV').innerHTML=`<span>武器</span><span>${pl.w.n} · ${pl.mag}/${pl.ammo}</span><span>护甲</span><span>${a.lvl?`${a.n} · ${Math.ceil(a.cur)}/${a.dur}`:'无'}</span>
-   <span>头盔</span><span>${h.lvl?`${h.n} · ${Math.ceil(h.cur)}/${h.dur}`:'无'}</span><span>医疗</span><span>绷带 ${pl.meds.band} · 急救包 ${pl.meds.kit}</span><span>生命</span><span>${Math.ceil(pl.hp)} / ${pl.maxhp}</span>`;
+  $('gearKV').innerHTML=`<span>武器</span><span>${pl.w.n} · ${pl.mag}/${pl.ammo}</span><span>护甲</span><span>${a.lvl?`${a.n} · ${Math.ceil(a.cur)}/${a.dur}`:'无'}</span><span>医疗</span><span>绷带 ${pl.meds.band} · 急救包 ${pl.meds.kit}</span><span>生命</span><span>${Math.ceil(pl.hp)} / ${pl.maxhp}</span>`;
  }
 
  /* ---- pause ---- */
