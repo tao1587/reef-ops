@@ -2020,8 +2020,40 @@ const randomBytes=n=>crypto.getRandomValues(new Uint8Array(n));
 
 return Object.freeze({verifyEd25519,randomBytes});
 })();
-/* ---- services/device.js ---- */
+/* ---- services/analytics.js ---- */
 __m[10]=(function(){
+/* ================= 访问统计：GoatCounter（不用 cookie） =================
+ 不嵌它的 count.js（产物是一个网页，不加外部脚本），照它的接口自己发：打开一次记一次访问，外加几个事件（名字和含义见 docs/operations/analytics.md）。
+ 只发固定的路径和事件名：网址里的 #（#p= 后面就是口令本身，#i= / #r= 是邀请、回执载荷）、查询串和设备码都不发。
+ 什么都不发：站点代码没填；不是 https 公网页面（localhost、局域网 IP、file:）；嵌在别的页面里；本机设了 skipgc（和 count.js 同一个开关，排除自己的设备）。
+ 发送失败静默丢掉（离线时就是这样），不影响游戏。 */
+// goatcounter.com 注册时起的站点代码（统计后台 https://<代码>.goatcounter.com）；空串 = 关闭统计
+const GC_CODE='anc';
+const LOCAL=/(^localhost$|\.localhost$|^127\.|^10\.|^172\.(1[6-9]|2\d|3[01])\.|^192\.168\.|^\[::1\]$)/;
+function createAnalytics(code){
+ let on=false;
+ // 读不了本机存储（禁用了网站数据）时也不发：少记几个人，换来这里永远不抛错
+ try{on=/^[a-z0-9-]+$/.test(code)&&location.protocol==='https:'&&!LOCAL.test(location.hostname)&&window.top===window&&localStorage.getItem('skipgc')!=='t';}catch(_){}
+ // v：p 路径或事件名、t 标题、r 来源页、e 是否事件；另加 s 屏幕宽、b 自动化浏览器（count.js 的 153）、rnd 防缓存
+ function send(v){
+  if(!on)return;
+  try{
+   const q={...v,s:screen.width,b:navigator.webdriver?153:0,rnd:Math.random().toString(36).slice(2,7)};
+   const url=`https://${code}.goatcounter.com/count?`+Object.keys(q).map(k=>k+'='+encodeURIComponent(q[k])).join('&');
+   if(!(navigator.sendBeacon&&navigator.sendBeacon(url)))new Image().src=url;
+  }catch(_){}
+ }
+ return{
+  // 路径只取 pathname；浏览器给的来源页本来就不带 #
+  pageview:()=>send({p:location.pathname,t:document.title,r:document.referrer}),
+  track:(name,title)=>send({p:name,t:title||'',e:true}),
+ };
+}
+
+return Object.freeze({GC_CODE,createAnalytics});
+})();
+/* ---- services/device.js ---- */
+__m[11]=(function(){
 /* ================= 设备能力：屏幕常亮、全屏、分享 / 复制（文字和图片）、下载、离线（PWA） ================= */
 let wakeLock=null;
 function keepAwake(on){try{if(on&&navigator.wakeLock&&!wakeLock)navigator.wakeLock.request('screen').then(l=>{wakeLock=l;l.addEventListener&&l.addEventListener('release',()=>{wakeLock=null;});}).catch(()=>{});
@@ -2065,7 +2097,7 @@ function registerServiceWorker(){
 return Object.freeze({keepAwake,lockOrientation,canFullscreen,enterFullscreen,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker});
 })();
 /* ---- platform/detect.js ---- */
-__m[11]=(function(){
+__m[12]=(function(){
 /* ================= 平台识别 =================
  同一套核心和画面，打开时判断设备，选用手机版或电脑版的布局（platform/mobile、platform/desktop + 对应样式）。
  手动指定：链接加 ?ui=mobile 或 ?ui=desktop，或在「玩法」里点切换；选择会记住。 */
@@ -2082,7 +2114,7 @@ function switchPlatform(p){try{localStorage.setItem('reef-ui',p);}catch(_){}loca
 return Object.freeze({PLATFORM,MOBILE,switchPlatform});
 })();
 /* ---- view/canvas.js ---- */
-__m[12]=(function(){
+__m[13]=(function(){
 /* ================= 画布与视口：画面层共享的绘图状态和基础绘图函数 =================
  平台层（HUD、操作）也从这里读屏幕尺寸和镜头位置，用这里的 panel / txt / bar 画面板。 */
 const {clamp}=__m[1];
@@ -2125,13 +2157,13 @@ function bar(x,y,w,h,p,col,bg){ctx.fillStyle=bg||'rgba(255,255,255,.08)';ctx.fil
 return Object.freeze({cv,ctx,fc,fctx,V,SAFE,cam,LAYERS,F_DISP,F_BODY,F_MONO,MINI_W,MINI_H,resize,resetCamera,toWorld,toScreen,setWorld,panel,txt,bar});
 })();
 /* ---- platform/orient.js ---- */
-__m[13]=(function(){
+__m[14]=(function(){
 /* ================= 画面方向：跟随手机 / 横屏 / 竖屏（只在手机版布局生效） =================
  手机锁了自动旋转、或者 iOS 浏览器根本不让网页锁方向时，也要能按玩家选的方向玩：选的方向和视口方向不一致，就把整页 body 转 90°
  （styles/base.css 的 html.rot90 / html.rot270），画面层按转过来的尺寸画（view/canvas.js 的 V.rot），触屏和鼠标坐标用 toLogical 换算。
  <html> 上的 .land / .port 是转过之后的方向，样式里用它代替 @media (orientation)。选择记在本机 reef-orient。 */
-const {V}=__m[12];
-const {MOBILE}=__m[11];
+const {V}=__m[13];
+const {MOBILE}=__m[12];
 
 const KEY='reef-orient';
 const ORIENT={pref:'auto'};   // 'auto' 跟随手机 · 'land' 横屏 · 'port' 竖屏
@@ -2151,10 +2183,10 @@ function toLogical(e){const r=V.rot;return r===90?{x:e.clientY,y:innerWidth-e.cl
 return Object.freeze({ORIENT,applyOrient,setOrient,toLogical});
 })();
 /* ---- platform/state.js ---- */
-__m[14]=(function(){
+__m[15]=(function(){
 /* ================= 输入状态：两个平台的操作层共享 =================
  两套操作层都会装上，按最近一次输入自动切换（SCHEME.touch）：摸屏幕就用触屏操作，动鼠标或按键盘就用键鼠操作。 */
-const {toLogical}=__m[13];
+const {toLogical}=__m[14];
 
 const K=new Set();                                   // 按住的键
 const IN={mx:0,my:0,down:false};                     // 鼠标位置与左键
@@ -2168,14 +2200,14 @@ function setScheme(v,force){if(SCHEME.touch===v&&!force)return;SCHEME.touch=v;if
 return Object.freeze({K,IN,TOUCH,SCHEME,isT,stick,setScheme});
 })();
 /* ---- view/hud.js ---- */
-__m[15]=(function(){
+__m[16]=(function(){
 /* ================= HUD：共享部分 =================
  平台差异（角落面板、底部面板、瞄准 / 摇杆显示、提示位置、避让区域）由当前平台对象的 hud 提供，生命条 hpBar 两边共用（platform/desktop、platform/mobile）；
  平台对象按最近一次输入选用，所以带键盘的平板或触屏笔记本也能随时切换。 */
 const {TAU,clamp}=__m[1];
 const {MEDS,PLATE}=__m[2];
 const {MW,MH}=__m[3];
-const {ctx,V,SAFE,LAYERS,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
+const {ctx,V,SAFE,LAYERS,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[13];
 
 /* 生命条（两个平台的 HUD 共用）：
  颜色三档按显示的整数：> 60 白，≤ 60 琥珀（缺血 ≥ 40，core/raid.js startHeal 这时会用急救包），< 35 红（和红色暗角同一线）；
@@ -2262,12 +2294,12 @@ function drawBigMap(G,PF){
 return Object.freeze({hpCol,hpBar,protBar,drawHUD});
 })();
 /* ---- platform/desktop/hud.js ---- */
-__m[16]=(function(){
+__m[17]=(function(){
 /* ================= 电脑版 HUD：左上计时、顶部背包、左下生命、右下武器、鼠标准星 ================= */
 const {TAU,clamp,fmt,mmss}=__m[1];
-const {ctx,V,F_DISP,F_BODY,F_MONO,MINI_W,panel,txt,bar,toWorld}=__m[12];
-const {hpBar,hpCol,protBar}=__m[15];
-const {IN}=__m[14];
+const {ctx,V,F_DISP,F_BODY,F_MONO,MINI_W,panel,txt,bar,toWorld}=__m[13];
+const {hpBar,hpCol,protBar}=__m[16];
+const {IN}=__m[15];
 
 const HUD_DESKTOP={
  corner(G,m,narrow){
@@ -2330,11 +2362,11 @@ const VIEW_DESKTOP={
 return Object.freeze({HUD_DESKTOP,VIEW_DESKTOP});
 })();
 /* ---- platform/desktop/input.js ---- */
-__m[17]=(function(){
+__m[18]=(function(){
 /* ================= 电脑版操作：WASD 移动 · 鼠标瞄准射击 · R/F/H/Tab/M/Esc ================= */
-const {K,IN,setScheme}=__m[14];
-const {toLogical}=__m[13];
-const {toWorld}=__m[12];
+const {K,IN,setScheme}=__m[15];
+const {toLogical}=__m[14];
+const {toWorld}=__m[13];
 
 let hooks=null;   // {getRaid, command, unlockAudio}（见 platform/index.js）
 function initDesktopInput(h){
@@ -2366,18 +2398,18 @@ const CONTROL_DESKTOP={
 return Object.freeze({initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys,CONTROL_DESKTOP});
 })();
 /* ---- platform/desktop/index.js ---- */
-__m[18]=(function(){
+__m[19]=(function(){
 /* ================= 电脑版平台对象：键鼠操作 + 电脑版 HUD 与画面参数 =================
  平台对象的接口见 docs/architecture/platform.md：touch · control · hud · view · raidStart(say) · hurt()。 */
-const {HUD_DESKTOP,VIEW_DESKTOP}=__m[16];
-const {CONTROL_DESKTOP}=__m[17];
+const {HUD_DESKTOP,VIEW_DESKTOP}=__m[17];
+const {CONTROL_DESKTOP}=__m[18];
 
 const PF_DESKTOP={touch:false,hud:HUD_DESKTOP,view:VIEW_DESKTOP,control:CONTROL_DESKTOP,raidStart(){},hurt(){}};
 
 return Object.freeze({PF_DESKTOP});
 })();
 /* ---- view/dom.js ---- */
-__m[19]=(function(){
+__m[20]=(function(){
 /* ================= DOM 小工具：取元素、转义、提示条、二次确认 ================= */
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2394,13 +2426,13 @@ function armConfirm(btn,label,action){
 return Object.freeze({$,esc,toast,armConfirm});
 })();
 /* ---- platform/mobile/input.js ---- */
-__m[20]=(function(){
+__m[21]=(function(){
 /* ================= 手机版操作：左半屏浮动摇杆 · 右下开火键（自动瞄准，拖动指定方向） · 换弹/治疗/搜索 ================= */
 const {clamp,angDiff}=__m[1];
-const {cv,V,cam}=__m[12];
-const {$}=__m[19];
-const {TOUCH,SCHEME,isT,stick,setScheme}=__m[14];
-const {toLogical}=__m[13];
+const {cv,V,cam}=__m[13];
+const {$}=__m[20];
+const {TOUCH,SCHEME,isT,stick,setScheme}=__m[15];
+const {toLogical}=__m[14];
 
 const AIM={p:null,lock:null,hold:0};   // 自动瞄准：锁定的敌人；松开开火键后朝向再保持 hold 秒
 const KEYS={esc:'pause',tab:'inv',f:'interact',r:'reload',h:'heal',m:'map'};   // 触屏按钮 data-k → 玩家命令（「暂停」直接暂停，不像 Esc 先关面板）
@@ -2500,16 +2532,16 @@ function pickTarget(G,p,dirA){
 return Object.freeze({AIM,touchCanvasDown,touchMove,touchUp,releaseTouch,initMobileInput,showTouchControls,resetTouchUI,syncTouchUI,CONTROL_MOBILE});
 })();
 /* ---- platform/mobile/hud.js ---- */
-__m[21]=(function(){
+__m[22]=(function(){
 /* ================= 手机版 HUD：角色脚下的生命弧、左上面板（计时+背包，竖屏还有生命和护甲）、横屏底部生命条、摇杆提示、避开右下按键区 =================
  生命按「越常变、越要命，就离视线越近」摆：打起来眼睛在角色和开火键上，所以主读数是脚下的弧；
  横屏高度最紧，左上只留任务信息，生命和护甲的细节放到两只拇指之间的底边；竖屏底边被按键占满，细节留在左上面板 */
 const {TAU,clamp,fmtK,mmss}=__m[1];
 const {MEDS}=__m[2];
-const {ctx,V,SAFE,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[12];
-const {hpBar,hpCol,protBar}=__m[15];
-const {TOUCH}=__m[14];
-const {AIM}=__m[20];
+const {ctx,V,SAFE,F_DISP,F_BODY,F_MONO,panel,txt,bar,toScreen}=__m[13];
+const {hpBar,hpCol,protBar}=__m[16];
+const {TOUCH}=__m[15];
+const {AIM}=__m[21];
 
 const panelH=()=>V.H>V.W?116:72;   // 左上面板高：竖屏含生命和护甲，横屏只有任务信息
 const VIT_H=40;
@@ -2610,12 +2642,12 @@ const VIEW_MOBILE={
 return Object.freeze({HUD_MOBILE,VIEW_MOBILE});
 })();
 /* ---- platform/mobile/index.js ---- */
-__m[22]=(function(){
+__m[23]=(function(){
 /* ================= 手机版平台对象：触屏操作 + 手机版 HUD 与画面参数 =================
  平台对象的接口见 docs/architecture/platform.md：touch · control · hud · view · raidStart(say) · hurt()。 */
-const {HUD_MOBILE,VIEW_MOBILE}=__m[21];
-const {CONTROL_MOBILE}=__m[20];
-const {V}=__m[12];
+const {HUD_MOBILE,VIEW_MOBILE}=__m[22];
+const {CONTROL_MOBILE}=__m[21];
+const {V}=__m[13];
 
 const PF_MOBILE={touch:true,hud:HUD_MOBILE,view:VIEW_MOBILE,control:CONTROL_MOBILE,
  raidStart(say){if(V.H>V.W)say('横屏游玩视野更开阔：暂停里可以切换横屏','#f0a43a',6);},
@@ -2624,17 +2656,17 @@ const PF_MOBILE={touch:true,hud:HUD_MOBILE,view:VIEW_MOBILE,control:CONTROL_MOBI
 return Object.freeze({PF_MOBILE});
 })();
 /* ---- platform/index.js ---- */
-__m[23]=(function(){
+__m[24]=(function(){
 /* ================= 平台层入口 =================
  电脑版、手机版两套界面层都装上：布局在打开时按设备决定（detect.js），操作和 HUD 按最近一次输入随时切换（state.js SCHEME）。
  对外：initInput(app) 装上输入监听 · active() 当前生效的平台对象 · useTouch(v) 切换操作方式 · enterRaid / leaveRaid / syncTouch 管触屏按键区 ·
  ORIENT / applyOrient / setOrient 画面方向（orient.js）。 */
-const {SCHEME,isT,setScheme}=__m[14];
-const {ORIENT:OR,applyOrient:applyO,setOrient:setO}=__m[13];
-const {PF_DESKTOP}=__m[18];
-const {PF_MOBILE}=__m[22];
-const {initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys}=__m[17];
-const {initMobileInput,touchCanvasDown,touchMove,touchUp,releaseTouch,resetTouchUI,showTouchControls,syncTouchUI}=__m[20];
+const {SCHEME,isT,setScheme}=__m[15];
+const {ORIENT:OR,applyOrient:applyO,setOrient:setO}=__m[14];
+const {PF_DESKTOP}=__m[19];
+const {PF_MOBILE}=__m[23];
+const {initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys}=__m[18];
+const {initMobileInput,touchCanvasDown,touchMove,touchUp,releaseTouch,resetTouchUI,showTouchControls,syncTouchUI}=__m[21];
 
 const active=()=>SCHEME.touch?PF_MOBILE:PF_DESKTOP;
 const ORIENT=OR;
@@ -2668,15 +2700,15 @@ function initInput(app){
 return Object.freeze({active,ORIENT,applyOrient,setOrient,useTouch,enterRaid,leaveRaid,syncTouch,initInput});
 })();
 /* ---- view/render.js ---- */
-__m[24]=(function(){
+__m[25]=(function(){
 /* ================= 画面：静态图层（地面、障碍、小地图）与每帧的世界渲染 =================
  只读地图和对局的数据来画，不改游戏状态。镜头与视口在 view/canvas.js，枪口火光、血迹、抖屏在 view/effects.js。 */
 const {TAU,clamp}=__m[1];
 const {CONT_GLYPH}=__m[2];
 const {MW,MH,SEA_Y,YARD_X,YARD_Y,TANKS,PIER,HELIPAD,segObs}=__m[3];
 const {VIS_R}=__m[4];
-const {ctx,fc,fctx,V,cam,LAYERS,F_DISP,F_BODY,F_MONO,MINI_W,MINI_H,setWorld}=__m[12];
-const {drawHUD}=__m[15];
+const {ctx,fc,fctx,V,cam,LAYERS,F_DISP,F_BODY,F_MONO,MINI_W,MINI_H,setWorld}=__m[13];
+const {drawHUD}=__m[16];
 
 const rnd=(a,b)=>a+Math.random()*(b-a);   // 画面装饰用的随机（地面纹理、抖屏），和对局的随机数无关
 
@@ -2858,7 +2890,7 @@ function drawSoldier(e,col,pl){
 return Object.freeze({renderStatic,render});
 })();
 /* ---- view/effects.js ---- */
-__m[25]=(function(){
+__m[26]=(function(){
 /* ================= 局内反馈：把对局事件变成特效、提示、音效和震动 =================
  core/raid.js 只发事件（raid.events），这里决定怎么表现：枪口火光、弹着火花、血迹、抖屏、受击方向、命中标记、提示消息、进入区域横幅。
  这些状态只属于画面，不影响对局结果（S.lag 是生命条的受击残影）。handle() 处理一条事件，update() 随对局计时衰减（暂停时不调用）。 */
@@ -2904,12 +2936,12 @@ function createEffects(audio){
 return Object.freeze({createEffects});
 })();
 /* ---- view/lobby.js ---- */
-__m[26]=(function(){
+__m[27]=(function(){
 /* ================= 大厅：资金、配装、仓库、模式与出发（两个平台共用的 DOM 界面） =================
  只负责显示和收集点击；买卖、配装等规则在 core/profile.js，次数在 core/meta.js。 */
 const {fmt,fmtK}=__m[1];
 const {WEAPONS,ARMORS,HELMETS,BAGS,MEDS,ITEMS,MODES,RC,iName,iR,iSize,iVal}=__m[2];
-const {$,armConfirm}=__m[19];
+const {$,armConfirm}=__m[20];
 
 const GROUPS=[['w','主武器',WEAPONS],['a','防弹衣',ARMORS],['h','头盔',HELMETS],['b','背包',BAGS]];
 // profile / meta：存档与设备信息 · mobile：手机版布局 · device：全屏等设备能力 · deploy()：开始行动 · switchPlatform(p)：切换界面版本 · refresh()：重画大厅
@@ -2982,12 +3014,12 @@ function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh})
 return Object.freeze({createLobby});
 })();
 /* ---- view/raid-ui.js ---- */
-__m[27]=(function(){
+__m[28]=(function(){
 /* ================= 局内面板：搜索面板、背包、暂停、结算（DOM） =================
  面板的开关跟着对局状态走：每帧 sync(raid) 对照一次，状态变了才动 DOM；按钮只调用 raid 的方法。 */
 const {fmt,fmtK,mmss}=__m[1];
 const {RC,RN,REVEAL,MEDS,PLATE,BAGS,SAFE_CAP,iName,iR,iSize,iVal}=__m[2];
-const {$,armConfirm}=__m[19];
+const {$,armConfirm}=__m[20];
 
 // getRaid()：进行中的对局（没有则 null）· back()：结算页「返回基地」
 function createRaidUI({getRaid,back}){
@@ -3081,7 +3113,7 @@ function createRaidUI({getRaid,back}){
 return Object.freeze({createRaidUI});
 })();
 /* ---- core/qr.js ---- */
-__m[28]=(function(){
+__m[29]=(function(){
 /* ================= 二维码编码（战绩图上的邀请链接） =================
    只做一种：字节模式（UTF-8）+ 纠错等级 M（约 15% 可恢复，聊天软件压图后仍能扫）。版本 1–40 自动取最小的。
    算法按 ISO/IEC 18004；不引第三方库（AGENTS.md 规则 6）。纯函数，Node 里可测。 */
@@ -3221,15 +3253,15 @@ function qrEncode(text,opt={}){
 return Object.freeze({dataCodewords,qrEncode});
 })();
 /* ---- view/share-card.js ---- */
-__m[29]=(function(){
+__m[30]=(function(){
 /* ================= 战绩图：结算时画一张 1080×1350 的竖版图，玩家自己发到群里 =================
  没有排行榜，群里比的就是图上的数字（带出价值、本局积分、本周积分）。右下角二维码是自己的邀请链接，新玩家扫码进来多得次数。
  这里只画图和导出；分享、复制、下载在 services/device.js，由 view/meta-ui.js 调用。 */
 const {fmtK,mmss,pad2}=__m[1];
 const {EK,RC,iName,iR,iVal}=__m[2];
 const {RULES}=__m[6];
-const {qrEncode}=__m[28];
-const {F_DISP,F_BODY,F_MONO}=__m[12];
+const {qrEncode}=__m[29];
+const {F_DISP,F_BODY,F_MONO}=__m[13];
 
 const W=1080,H=1350,P=72,QW=268;   // 画布、左右留边、右下二维码栏宽
 // 颜色和 styles/base.css 的 CSS 变量各有一份
@@ -3329,13 +3361,13 @@ async function makeCard(d){
 return Object.freeze({makeCard});
 })();
 /* ---- view/meta-ui.js ---- */
-__m[30]=(function(){
+__m[31]=(function(){
 /* ================= 代号 / 次数 / 邀请 / 口令 / 战绩图的界面（两个平台共用；布局差异在样式里） =================
  规则都在 core/meta.js，这里只负责状态栏、弹窗、最近战绩、战绩图的分享与复制。 */
 const {fmtK,pad2}=__m[1];
 const {RULES,fmtDid,nameOK}=__m[6];
-const {$,esc,toast}=__m[19];
-const {makeCard}=__m[29];
+const {$,esc,toast}=__m[20];
+const {makeCard}=__m[30];
 
 // meta：设备信息与规则 · device：分享 / 复制 / 下载 · touch()：当前是否触屏操作 · refresh()：重画大厅
 function createMetaUI({meta,device,touch,refresh}){
@@ -3481,11 +3513,11 @@ function createMetaUI({meta,device,touch,refresh}){
 return Object.freeze({createMetaUI});
 })();
 /* ---- view/orient-ui.js ---- */
-__m[31]=(function(){
+__m[32]=(function(){
 /* ================= 画面方向的按钮：大厅「转横屏 / 转竖屏」、暂停面板里同样的按钮、「玩法」里的三选一 =================
  只显示和转发点击；转屏本身在 platform/orient.js，由 app.js 注入的 set(pref) 完成（转屏、重设画布、提示）。 */
-const {V}=__m[12];
-const {$}=__m[19];
+const {V}=__m[13];
+const {$}=__m[20];
 
 // pref()：当前选择 'auto' 跟随手机 | 'land' 横屏 | 'port' 竖屏 · set(p)：改选择
 function createOrientUI({pref,set}){
@@ -3506,7 +3538,7 @@ function createOrientUI({pref,set}){
 return Object.freeze({createOrientUI});
 })();
 /* ---- view/install-hint.js ---- */
-__m[32]=(function(){
+__m[33]=(function(){
 /* ================= 「装到主屏幕」提示条（大厅顶部；点「知道了」后不再出现） ================= */
 function mountInstallHint(){
  let dismissed=false;try{dismissed=localStorage.getItem('reef-hint-off')==='1';}catch(_){}
@@ -3529,21 +3561,21 @@ function mountInstallHint(){
 return Object.freeze({mountInstallHint});
 })();
 /* ---- pass-key.js ---- */
-__m[33]=(function(){
+__m[34]=(function(){
 /* 口令公钥（tools/keygen.mjs 生成）。网页只用它核对口令，算不出新口令。 */
 const PASS_PUBKEY='Nyz2iUGOzYEEqxWU6zlroOuWuv-wQfSSpJ9MK-1563k';
 
 return Object.freeze({PASS_PUBKEY});
 })();
 /* ---- pass-revoked.js ---- */
-__m[34]=(function(){
+__m[35]=(function(){
 /* 已作废的口令（签名前 16 位）。tools/pass.mjs --revoke 维护。 */
 const PASS_REVOKED=[];
 
 return Object.freeze({PASS_REVOKED});
 })();
 /* ---- app.js ---- */
-__m[35]=(function(){
+__m[36]=(function(){
 /* ================= 组装与主循环 =================
  唯一把各层连起来的地方：创建存档、设备信息、音效等服务，装上平台输入和界面，负责「大厅 → 对局 → 结算」的切换。
  各层的分工与依赖方向见 docs/architecture/index.md。 */
@@ -3555,20 +3587,21 @@ const {createMeta,META_KEY}=__m[6];
 const {jsonStore}=__m[7];
 const {createAudio}=__m[8];
 const {verifyEd25519,randomBytes}=__m[9];
-const {keepAwake,canFullscreen,enterFullscreen,lockOrientation,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker}=__m[10];
-const {PLATFORM,MOBILE,switchPlatform}=__m[11];
-const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient}=__m[23];
-const {cv,resize,resetCamera}=__m[12];
-const {render,renderStatic}=__m[24];
-const {createEffects}=__m[25];
-const {createLobby}=__m[26];
-const {createRaidUI}=__m[27];
-const {createMetaUI}=__m[30];
-const {createOrientUI}=__m[31];
-const {mountInstallHint}=__m[32];
-const {$,toast}=__m[19];
-const {PASS_PUBKEY}=__m[33];
-const {PASS_REVOKED}=__m[34];
+const {createAnalytics,GC_CODE}=__m[10];
+const {keepAwake,canFullscreen,enterFullscreen,lockOrientation,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker}=__m[11];
+const {PLATFORM,MOBILE,switchPlatform}=__m[12];
+const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient}=__m[24];
+const {cv,resize,resetCamera}=__m[13];
+const {render,renderStatic}=__m[25];
+const {createEffects}=__m[26];
+const {createLobby}=__m[27];
+const {createRaidUI}=__m[28];
+const {createMetaUI}=__m[31];
+const {createOrientUI}=__m[32];
+const {mountInstallHint}=__m[33];
+const {$,toast}=__m[20];
+const {PASS_PUBKEY}=__m[34];
+const {PASS_REVOKED}=__m[35];
 
 document.documentElement.classList.add(PLATFORM);
 const newSeed=()=>(Math.random()*4294967296)>>>0;
@@ -3581,6 +3614,7 @@ const device={share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,
 const profile=createProfile(jsonStore(SAVE_KEY));
 const meta=createMeta({store:jsonStore(META_KEY),now:()=>Date.now(),randomBytes,verify:verifyEd25519,
  pubkey:PASS_PUBKEY,revoked:PASS_REVOKED,baseURL:()=>location.origin+location.pathname});
+const stats=createAnalytics(GC_CODE);
 
 /* ---- 界面状态：screen 'lobby' | 'raid' | 'summary'；raid 进行中的对局；bg 大厅背景用的地图 ---- */
 const app={screen:'lobby',raid:null,bg:null};
@@ -3611,6 +3645,7 @@ function deploy(){
   try{renderStatic(app.bg);}catch(_){}   // 静态图层可能已换成这局的地图，换回大厅背景
   refresh();toast(raid?'今日次数已用完：明天 04:00 刷新，或邀请好友拿奖励次数':'出发失败，没扣次数：换一套配装再试，还不行就重置存档','bad');return;
  }
+ stats.track(`raid/${profile.mode}/start`,'出发');
  const PF=active();effects.reset();drainEvents(raid,PF);
  PF.raidStart(effects.say);
  resetCamera(raid.pl.x,raid.pl.y);app.bg=raid.world;
@@ -3627,6 +3662,7 @@ function drainEvents(G,PF){
 function raidEnded(r){
  try{profile.settle(r);}catch(e){console.error(e);}
  let rec=null;try{rec=meta.record(r);}catch(e){console.error(e);}
+ stats.track(`raid/${r.mode}/${r.ok?'extract':'fail'}`,r.ok?'撤离成功':'撤离失败');
  setTimeout(()=>showSummary(r,rec),r.ok?400:1600);
 }
 function showSummary(r,rec){
@@ -3678,6 +3714,12 @@ window.addEventListener('resize',onResize);
 /* ---- PWA：离线缓存；从主屏幕打开时不再提示安装。可有可无，出错也不能拦住后面的启动 ---- */
 try{registerServiceWorker();}catch(err){console.error(err);}
 try{if(isStandalone())document.documentElement.classList.add('standalone');else mountInstallHint();}catch(err){console.error(err);}
+
+/* ---- 访问统计：记一次访问，外加布局、打开方式、从哪类链接进来（只记类别，链接内容不发）。放在启动前：启动后 metaUI.readURL 会清掉网址里的 # ---- */
+try{
+ stats.pageview();stats.track(`open/${PLATFORM}/${isStandalone()?'app':'web'}`,'打开');
+ const via=/#([pir])=/.exec(location.hash);if(via)stats.track('link/'+{p:'pass',i:'invite',r:'receipt'}[via[1]],'点开链接');
+}catch(err){console.error(err);}
 
 /* ---- 启动（兼容热更新环境：带着存档重启） ---- */
 try{window.claude&&window.claude.hot&&window.claude.hot.snapshot&&window.claude.hot.snapshot(()=>({save:profile.save}));}catch(_){}
