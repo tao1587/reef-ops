@@ -54,6 +54,7 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-block:4px 14px}
 .logo{font:800 clamp(38px,7vw,64px)/.95 var(--disp);letter-spacing:.08em}
 .logo em{font-style:normal;color:var(--amber)}
+.logo .ver{font:500 10px/1 var(--mono);letter-spacing:.04em;color:var(--muted);vertical-align:top;margin-left:8px;white-space:nowrap}   /* 版本 · 构建号，web/build.mjs 填 */
 .sub{font:600 12px/1.4 var(--mono);letter-spacing:.22em;color:var(--muted);margin-top:8px}
 .wallet{text-align:right;display:flex;flex-direction:column;gap:2px}
 .lbl{font:600 11px var(--mono);letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
@@ -290,7 +291,7 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
 <div id="lobby" class="overlay">
  <div class="wrap">
   <header class="top">
-   <div><div class="logo">暗礁<em>行动</em></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
+   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本 · 构建号（和离线缓存名 reef-… 一致）">v0.4.0 · a2d57120</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
    <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button><button class="btn mo" id="orientBtn" style="padding:2px 8px;font-size:11px;margin-left:6px">转横屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
   </header>
   <section class="status" aria-label="我的代号与行动次数">
