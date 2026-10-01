@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="暗礁行动">
 <meta name="format-detection" content="telephone=no">
+<meta name="reef-build" content="b200f318">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -291,7 +292,7 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
 <div id="lobby" class="overlay">
  <div class="wrap">
   <header class="top">
-   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本 · 构建号（和离线缓存名 reef-… 一致）">v0.4.0 · a2d57120</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
+   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本 · 构建号（和离线缓存名 reef-… 一致）">v0.4.0 · b200f318</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
    <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button><button class="btn mo" id="orientBtn" style="padding:2px 8px;font-size:11px;margin-left:6px">转横屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
   </header>
   <section class="status" aria-label="我的代号与行动次数">
@@ -2144,11 +2145,34 @@ function download(blob,name){
 // 从主屏幕图标打开（装成 App）
 const isStandalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||(window.matchMedia&&matchMedia('(display-mode: fullscreen)').matches)||navigator.standalone===true;
 // 离线缓存：sw.js 由 web/build.mjs 生成
+const swOK=()=>'serviceWorker' in navigator&&/^https?:$/.test(location.protocol);
 function registerServiceWorker(){
- if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
+ if(swOK())window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
 }
+/* ---- 新版本：装到主屏幕的 App 从后台切回来不会重新加载页面，只能自己查 ---- */
+// 本页的构建号：web/build.mjs 写进 <meta name="reef-build">，和 sw.js 的缓存名 reef-<构建号> 是同一个哈希
+function pageBuild(){try{return document.querySelector('meta[name="reef-build"]').content;}catch(_){return'';}}
+// 线上有没有新版本：拿最新的 sw.js（不走 HTTP 缓存）比缓存名；不一样就让 SW 去更新，返回新构建号。没新版、离线、拿不到都返回 null
+async function checkUpdate(){
+ const b=pageBuild();if(!b||!swOK())return null;
+ try{
+  const m=/CACHE='reef-(\w+)'/.exec(await(await fetch('sw.js',{cache:'no-store'})).text());if(!m||m[1]===b)return null;
+  const reg=await navigator.serviceWorker.getRegistration();if(reg)await reg.update().catch(()=>{});
+  return m[1];
+ }catch(_){return null;}
+}
+// 换成新版本：等新 SW 接管（最多 4 秒）再重新加载，新 SW 导航时去服务器核对，拿到的就是新页面。
+// 同一个新版本每次会话只试一次（会话存储 reef-upd），CDN 还没换完、刷新后还是旧页时不会来回刷；返回这次刷没刷
+function applyUpdate(nb){
+ try{if(sessionStorage.getItem('reef-upd')===nb)return false;sessionStorage.setItem('reef-upd',nb);}catch(_){return false;}
+ let done=false;const go=()=>{if(!done){done=true;location.reload();}};
+ try{navigator.serviceWorker.addEventListener('controllerchange',go);}catch(_){}
+ setTimeout(go,4000);return true;
+}
+// 这次打开是不是刚自动更新完刷新出来的（applyUpdate 记下的就是本页构建号）。只认一次：记号改掉，之后手动刷新不再算
+function justUpdated(){try{const b=pageBuild();if(!b||sessionStorage.getItem('reef-upd')!==b)return false;sessionStorage.setItem('reef-upd',b+'.');return true;}catch(_){return false;}}
 
-return Object.freeze({keepAwake,lockOrientation,canFullscreen,enterFullscreen,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker});
+return Object.freeze({keepAwake,lockOrientation,canFullscreen,enterFullscreen,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker,pageBuild,checkUpdate,applyUpdate,justUpdated});
 })();
 /* ---- platform/detect.js ---- */
 __m[12]=(function(){
@@ -3668,7 +3692,7 @@ const {jsonStore}=__m[7];
 const {createAudio}=__m[8];
 const {verifyEd25519,randomBytes}=__m[9];
 const {createAnalytics,GC_CODE}=__m[10];
-const {keepAwake,canFullscreen,enterFullscreen,lockOrientation,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker}=__m[11];
+const {keepAwake,canFullscreen,enterFullscreen,lockOrientation,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker,pageBuild,checkUpdate,applyUpdate,justUpdated}=__m[11];
 const {PLATFORM,MOBILE,switchPlatform}=__m[12];
 const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient,watchViewport}=__m[24];
 const {cv,resize,resetCamera}=__m[13];
@@ -3751,7 +3775,12 @@ function showSummary(r,rec){
  try{metaUI.summary(r,rec);}catch(e){console.error(e);}
  $('summary').hidden=false;$('summary').firstElementChild.scrollTop=0;   // 结算框是复用的，会记着上一局滚到的位置
 }
-function backToLobby(){$('summary').hidden=true;app.raid=null;app.screen='lobby';$('lobby').hidden=false;refresh();}
+function backToLobby(){$('summary').hidden=true;app.raid=null;app.screen='lobby';$('lobby').hidden=false;refresh();tryUpdate();}
+
+/* ---- 新版本：打开时和切回前台时查一次（30 秒内不重复查）。只在大厅、没开弹窗时自动刷新；对局中、结算页、弹窗开着就等回到大厅（backToLobby）或下次切回前台 ---- */
+let newBuild=null,updAt=-1e9;
+function tryUpdate(){if(newBuild&&app.screen==='lobby'&&$('modal').hidden&&applyUpdate(newBuild))toast('发现新版本，正在更新…');}
+async function lookUpdate(){const t=performance.now();if(t-updAt<30000)return;updAt=t;const b=await checkUpdate();if(b){newBuild=b;tryUpdate();}}
 
 /* ---- 主循环 ---- */
 let last=performance.now(),started=false;
@@ -3793,13 +3822,15 @@ watchViewport(onResize);   // resize / 转屏 / 切回前台，iOS 读到旧尺�
 
 /* ---- PWA：离线缓存；从主屏幕打开时不再提示安装。可有可无，出错也不能拦住后面的启动 ---- */
 try{registerServiceWorker();}catch(err){console.error(err);}
+const updated=justUpdated();   // 这次是自动更新后的刷新：提示一下，也不算又打开了一次（访问统计）
+try{window.addEventListener('load',()=>{lookUpdate();if(updated)toast(`已更新到新版本 ${pageBuild()}`,'ok');});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')lookUpdate();});}catch(err){console.error(err);}
 try{if(isStandalone())document.documentElement.classList.add('standalone');else mountInstallHint();}catch(err){console.error(err);}
 
 /* ---- 访问统计：记一次访问，外加布局、打开方式、从哪类链接进来（只记类别，链接内容不发）。放在启动前：启动后 metaUI.readURL 会清掉网址里的 # ---- */
-try{
+try{if(!updated){
  stats.pageview();stats.track(`open/${PLATFORM}/${isStandalone()?'app':'web'}`,'打开');
  const via=/#([pir])=/.exec(location.hash);if(via)stats.track('link/'+{p:'pass',i:'invite',r:'receipt'}[via[1]],'点开链接');
-}catch(err){console.error(err);}
+}}catch(err){console.error(err);}
 
 /* ---- 启动（兼容热更新环境：带着存档重启） ---- */
 try{window.claude&&window.claude.hot&&window.claude.hot.snapshot&&window.claude.hot.snapshot(()=>({save:profile.save}));}catch(_){}
