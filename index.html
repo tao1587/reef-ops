@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="暗礁行动">
 <meta name="format-detection" content="telephone=no">
-<meta name="reef-build" content="cec9ab3a">
+<meta name="reef-build" content="5486dc57">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -34,14 +34,15 @@ html,body{height:100%}
 body{background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 #game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 /* 安全区（刘海、圆角、底部横条）统一走 --sa-*，整页转 90° 时四条边跟着换 */
-:root{--sa-t:env(safe-area-inset-top,0px);--sa-r:env(safe-area-inset-right,0px);--sa-b:env(safe-area-inset-bottom,0px);--sa-l:env(safe-area-inset-left,0px)}
+/* 手机底边（env 的 bottom）减去 --cut：iPhone 主屏幕 App 底下有一条 iOS 不画的空白时，底部横条就在那条里，页面不用再让（platform/orient.js applyOrient） */
+:root{--sa-t:env(safe-area-inset-top,0px);--sa-r:env(safe-area-inset-right,0px);--sa-b:max(0px,env(safe-area-inset-bottom,0px) - var(--cut,0px));--sa-l:env(safe-area-inset-left,0px)}
 /* 转屏：选的方向和手机拿的方向不一致时把整页 body 转 90°（platform/orient.js 设 .rot90 / .rot270 和实际视口宽高 --vw / --vh）。
  body 带了 transform 就是所有 fixed 元素的定位框，画布、面板、按键区跟着一起转；.land / .port 是转过之后的方向。
- iPhone 主屏幕 App（.fill）不转也这样定位：iOS 给 fixed 元素的视口比屏幕短一截状态栏高，按 --vw / --vh 才铺满 */
+ iPhone 主屏幕 App（.fill）不转也这样定位：--vw / --vh 是 iOS 实际画出来的那块，按它排就不会有东西落进底下那条不画的空白 */
 html.fill body,html.rot body{position:fixed;left:0;top:0;width:var(--vw);height:var(--vh);transform-origin:0 0;transform:translate(0,0)}
 html.rot body{width:var(--vh);height:var(--vw)}
-html.rot90 body{transform:translateX(var(--vw)) rotate(90deg);--sa-t:env(safe-area-inset-right,0px);--sa-r:env(safe-area-inset-bottom,0px);--sa-b:env(safe-area-inset-left,0px);--sa-l:env(safe-area-inset-top,0px)}
-html.rot270 body{transform:translateY(var(--vh)) rotate(-90deg);--sa-t:env(safe-area-inset-left,0px);--sa-r:env(safe-area-inset-top,0px);--sa-b:env(safe-area-inset-right,0px);--sa-l:env(safe-area-inset-bottom,0px)}
+html.rot90 body{transform:translateX(var(--vw)) rotate(90deg);--sa-t:env(safe-area-inset-right,0px);--sa-r:max(0px,env(safe-area-inset-bottom,0px) - var(--cut,0px));--sa-b:env(safe-area-inset-left,0px);--sa-l:env(safe-area-inset-top,0px)}
+html.rot270 body{transform:translateY(var(--vh)) rotate(-90deg);--sa-t:env(safe-area-inset-left,0px);--sa-r:env(safe-area-inset-top,0px);--sa-b:env(safe-area-inset-right,0px);--sa-l:max(0px,env(safe-area-inset-bottom,0px) - var(--cut,0px))}
 /* 转过的滚动区：touch-action 的 pan-x / pan-y 按屏幕算还是按元素算，各浏览器不一样，两个方向都放开 */
 html.rot #lobby,html.rot .stash,html.rot #lootList,html.rot #inv .box,html.rot .sbox{touch-action:pan-x pan-y}
 .overlay{position:fixed;inset:0;z-index:10}
@@ -50,7 +51,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;color:var(--text);background:#101a1d}
 
 /* ---------- lobby ---------- */
-#lobby{overflow:auto;touch-action:pan-y;background:linear-gradient(180deg,rgba(8,13,15,.35),rgba(8,13,15,.9) 45%,rgba(8,13,15,.97));padding-inline:16px;padding-block:calc(18px + var(--sa-t)) 28px}
+#lobby{overflow:auto;touch-action:pan-y;background:linear-gradient(180deg,rgba(8,13,15,.35),rgba(8,13,15,.9) 45%,rgba(8,13,15,.97));padding-inline:max(16px,var(--sa-l)) max(16px,var(--sa-r));padding-block:calc(18px + var(--sa-t)) 28px}   /* 左右让开安全区：iPhone 横屏时灵动岛 / 圆角那边约 60px，只留 16px 内容会贴到边上（底部出发栏 .mobile .deploy 也这样让） */
 .wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-block:4px 14px}
 .logo{font:800 clamp(38px,7vw,64px)/.95 var(--disp);letter-spacing:.08em}
@@ -269,7 +270,7 @@ html.land.touch #loot header small{display:none}
 .mobile .wallet .stats{display:none}
 .mobile .card{padding:12px}
 .mobile .stash{max-height:none}
-.mobile .deploy{position:fixed;left:0;right:0;bottom:0;z-index:11;background:rgba(9,14,16,.97);border-top:1px solid var(--line);padding:10px max(16px,var(--sa-r)) calc(10px + var(--sa-b)) max(16px,var(--sa-l));grid-template-columns:1fr 1fr auto;gap:8px}
+.mobile .deploy{position:fixed;left:0;right:0;bottom:0;z-index:11;background:rgba(9,14,16,.97);border-top:1px solid var(--line);padding:10px max(16px,var(--sa-r)) max(10px,calc(var(--sa-b) - 14px)) max(16px,var(--sa-l));grid-template-columns:1fr 1fr auto;gap:8px}   /* 底边只让 安全区 − 14（iPhone 竖屏 34 → 20），按钮离底部横条够远就行，整条安全区都让会空出一大截 */
 .mobile .mode{padding:7px 10px;gap:2px}
 .mobile .mode b{font-size:16px}
 .mobile .mode span:not(.req){display:none}
@@ -292,7 +293,7 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
 <div id="lobby" class="overlay">
  <div class="wrap">
   <header class="top">
-   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本号（点一下显示构建号和画面方向读数）">v0.5.0</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
+   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本号（点一下显示构建号和画面方向读数）">v0.5.1</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
    <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button><button class="btn mo" id="orientBtn" style="padding:2px 8px;font-size:11px;margin-left:6px">转横屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
   </header>
   <section class="status" aria-label="我的代号与行动次数">
@@ -2251,8 +2252,10 @@ try{const o=localStorage.getItem(KEY);if(o==='land'||o==='port')ORIENT.pref=o;}c
 // 之后也不一定再给事件，只靠隔一阵再量会停在转错的方向上。所以横竖以设备方向（devLand）为准，量反了就对调。
 // iPad、安卓可能分屏，窗口形状和设备方向不一定一致，不这样做
 const IPHONE=(()=>{try{return typeof navigator.standalone==='boolean'&&Math.min(screen.width,screen.height)<600;}catch(_){return false;}})();
-// iPhone 主屏幕 App：状态栏 black-translucent，网页铺满整屏，但 iOS 报的视口（innerHeight 和 fixed 元素的定位框）常短一截状态栏高，
-// 冷启动、转屏后都会这样，转过的横屏就在右边留一条空白。这时按方向拿屏幕尺寸兜底，body 也按它定位（html.fill）。iPad 可能分屏、窗口比屏幕小，不兜底
+// iPhone 主屏幕 App（html.fill）：状态栏 black-translucent，iOS 报的视口常比屏幕短一截（竖屏短一个状态栏高，874 的屏报 812），
+// 而且它真的只画到这里：多出来的那条是 iOS 自己的空白，页面画不进去（真机截图里按屏幕高排的出发栏在 812 处被切掉一半）。
+// 所以按报的视口排，只在报的是转屏前的旧值时先按整屏排；那条空白的高度记进 --cut，底部横条就在空白里，页面底边的安全区要减掉它（styles/base.css）。
+// iPad 可能分屏、窗口比屏幕小，不这样做
 const FILL=IPHONE&&navigator.standalone===true;
 // 设备现在横着没有：screen.orientation（iOS 16.4 起），没有就看旧的 window.orientation（±90 是横）；都没有返回 null
 function devLand(){
@@ -2262,13 +2265,14 @@ function devLand(){
 
 // 按视口和选择决定转不转：写 V.rot、V.vw / V.vh 和 <html> 的类、--vw / --vh（实际视口的宽高，画布和转屏样式要用），返回转的角度。每次 resize 之前调
 function applyOrient(){
- let w=innerWidth,h=innerHeight;
- if(IPHONE){const d=devLand();if(d!==null&&d!==w>h){const t=w;w=h;h=t;}}
- if(FILL){const l=w>h,a=Math.min(screen.width,screen.height),b=Math.max(screen.width,screen.height);w=Math.max(w,l?b:a);h=Math.max(h,l?a:b);}
+ let w=innerWidth,h=innerHeight,stale=false,cut=0;
+ if(IPHONE){const d=devLand();if(d!==null&&d!==w>h){const t=w;w=h;h=t;stale=true;}}
+ if(FILL){const a=Math.min(screen.width,screen.height),b=Math.max(screen.width,screen.height),l=w>h;
+  if(stale){w=l?b:a;h=l?a:b;}else cut=Math.max(0,Math.round((l?a:b)-h));}
  const p=MOBILE?ORIENT.pref:'auto',rot=p==='land'&&h>w?90:p==='port'&&w>h?-90:0;
  const de=document.documentElement,cl=de.classList,land=rot?h>w:w>h;
  V.rot=rot;V.vw=w;V.vh=h;cl.toggle('fill',FILL);cl.toggle('rot',!!rot);cl.toggle('rot90',rot===90);cl.toggle('rot270',rot===-90);cl.toggle('land',land);cl.toggle('port',!land);
- de.style.setProperty('--vw',w+'px');de.style.setProperty('--vh',h+'px');return rot;
+ de.style.setProperty('--vw',w+'px');de.style.setProperty('--vh',h+'px');de.style.setProperty('--cut',cut+'px');return rot;
 }
 function setOrient(p){ORIENT.pref=p==='land'||p==='port'?p:'auto';try{localStorage.setItem(KEY,ORIENT.pref);}catch(_){}return applyOrient();}
 // 视口或设备方向变了就调 cb（app.js 的 onResize）。iOS 转屏时 resize 事件里的 innerWidth / innerHeight 常是旧值，之后也不一定补发事件，
@@ -2285,7 +2289,8 @@ function watchViewport(cb){
 // 现场读数（点大厅页头的版本号显示，app.js）：真机上转屏不对时，拿它看 iOS 报的视口、屏幕和设备方向，和这里算出来的转向对不对得上
 function orientInfo(){
  let o='?';try{o=screen.orientation&&screen.orientation.type||String(window.orientation);}catch(_){}
- return `视口 ${innerWidth}×${innerHeight} · 屏幕 ${screen.width}×${screen.height} · 设备 ${o} · 算得 ${V.vw}×${V.vh} 转${V.rot}° · ${document.documentElement.classList.contains('land')?'横':'竖'}${FILL?' · 主屏':''}`;
+ const c=document.documentElement.style.getPropertyValue('--cut');
+ return `视口 ${innerWidth}×${innerHeight} · 屏幕 ${screen.width}×${screen.height} · 设备 ${o} · 算得 ${V.vw}×${V.vh} 转${V.rot}° · ${document.documentElement.classList.contains('land')?'横':'竖'}${FILL?` · 主屏 · 底空 ${parseInt(c)||0}`:''}`;
 }
 // 指针事件的屏幕坐标 → 转过之后的页面坐标（90：页面顺时针转，竖着的手机要逆时针横过来、顶部朝左看；-90 反过来）。宽高用 applyOrient 量的，和 body 的位移一致
 function toLogical(e){const r=V.rot;return r===90?{x:e.clientY,y:V.vw-e.clientX}:r===-90?{x:V.vh-e.clientY,y:e.clientX}:{x:e.clientX,y:e.clientY};}
