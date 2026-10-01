@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="暗礁行动">
 <meta name="format-detection" content="telephone=no">
-<meta name="reef-build" content="b200f318">
+<meta name="reef-build" content="cf8cd366">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -292,7 +292,7 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
 <div id="lobby" class="overlay">
  <div class="wrap">
   <header class="top">
-   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本 · 构建号（和离线缓存名 reef-… 一致）">v0.4.0 · b200f318</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
+   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本 · 构建号（和离线缓存名 reef-… 一致）">v0.4.0 · cf8cd366</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
    <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button><button class="btn mo" id="orientBtn" style="padding:2px 8px;font-size:11px;margin-left:6px">转横屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
   </header>
   <section class="status" aria-label="我的代号与行动次数">
@@ -2247,13 +2247,23 @@ const {MOBILE}=__m[12];
 const KEY='reef-orient';
 const ORIENT={pref:'auto'};   // 'auto' 跟随手机 · 'land' 横屏 · 'port' 竖屏
 try{const o=localStorage.getItem(KEY);if(o==='land'||o==='port')ORIENT.pref=o;}catch(_){}
+// iPhone（Safari 和主屏幕 App 都有 navigator.standalone 这个布尔值）：转屏后 innerWidth / innerHeight 可能一直是转之前的（WebKit 170595），
+// 之后也不一定再给事件，只靠隔一阵再量会停在转错的方向上。所以横竖以设备方向（devLand）为准，量反了就对调。
+// iPad、安卓可能分屏，窗口形状和设备方向不一定一致，不这样做
+const IPHONE=(()=>{try{return typeof navigator.standalone==='boolean'&&Math.min(screen.width,screen.height)<600;}catch(_){return false;}})();
 // iPhone 主屏幕 App：状态栏 black-translucent，网页铺满整屏，但 iOS 报的视口（innerHeight 和 fixed 元素的定位框）常短一截状态栏高，
 // 冷启动、转屏后都会这样，转过的横屏就在右边留一条空白。这时按方向拿屏幕尺寸兜底，body 也按它定位（html.fill）。iPad 可能分屏、窗口比屏幕小，不兜底
-const FILL=(()=>{try{return navigator.standalone===true&&Math.min(screen.width,screen.height)<600;}catch(_){return false;}})();
+const FILL=IPHONE&&navigator.standalone===true;
+// 设备现在横着没有：screen.orientation（iOS 16.4 起），没有就看旧的 window.orientation（±90 是横）；都没有返回 null
+function devLand(){
+ try{const t=screen.orientation&&screen.orientation.type;if(t)return t.indexOf('landscape')===0;if(typeof window.orientation==='number')return Math.abs(window.orientation)===90;}catch(_){}
+ return null;
+}
 
 // 按视口和选择决定转不转：写 V.rot、V.vw / V.vh 和 <html> 的类、--vw / --vh（实际视口的宽高，画布和转屏样式要用），返回转的角度。每次 resize 之前调
 function applyOrient(){
  let w=innerWidth,h=innerHeight;
+ if(IPHONE){const d=devLand();if(d!==null&&d!==w>h){const t=w;w=h;h=t;}}
  if(FILL){const l=w>h,a=Math.min(screen.width,screen.height),b=Math.max(screen.width,screen.height);w=Math.max(w,l?b:a);h=Math.max(h,l?a:b);}
  const p=MOBILE?ORIENT.pref:'auto',rot=p==='land'&&h>w?90:p==='port'&&w>h?-90:0;
  const de=document.documentElement,cl=de.classList,land=rot?h>w:w>h;
@@ -2261,19 +2271,26 @@ function applyOrient(){
  de.style.setProperty('--vw',w+'px');de.style.setProperty('--vh',h+'px');return rot;
 }
 function setOrient(p){ORIENT.pref=p==='land'||p==='port'?p:'auto';try{localStorage.setItem(KEY,ORIENT.pref);}catch(_){}return applyOrient();}
-// 视口变了就调 cb（app.js 的 onResize）。iOS 转屏时 resize 事件里的 innerWidth / innerHeight 常是旧值，之后也不一定补发事件，
-// 画面就停在转错的方向上（手机已横过来，内容还按竖屏转着）：事件来了先调一次，再隔一阵量几次，尺寸变了再调；
-// 另外盯着 <html> 的尺寸（高 100%，就是视口），排版完视口真变了就算没有事件也能收到
+// 视口或设备方向变了就调 cb（app.js 的 onResize）。iOS 转屏时 resize 事件里的 innerWidth / innerHeight 常是旧值，之后也不一定补发事件，
+// 画面就停在转错的方向上（手机已横过来，内容还按竖屏转着）：事件来了先调一次，再隔一阵量几次，尺寸或设备方向变了再调（iPhone 上横竖本来就看设备方向，见 applyOrient）；
+// 另外盯着 <html> 的尺寸（高 100%，就是视口）和 screen.orientation 的 change，排版完视口真变了、或只换了方向，没有 resize 也能收到
 function watchViewport(cb){
- let k=innerWidth+'x'+innerHeight,tm=[];const chk=()=>{const n=innerWidth+'x'+innerHeight;if(n!==k){k=n;cb();}};
+ const key=()=>innerWidth+'x'+innerHeight+'/'+devLand();
+ let k=key(),tm=[];const chk=()=>{const n=key();if(n!==k){k=n;cb();}};
  const on=()=>{k='';chk();tm.forEach(clearTimeout);tm=[100,300,700,1500].map(t=>setTimeout(chk,t));};
  addEventListener('resize',on);addEventListener('orientationchange',on);document.addEventListener('visibilitychange',()=>{if(!document.hidden)on();});
+ try{screen.orientation.addEventListener('change',on);}catch(_){}
  try{new ResizeObserver(()=>chk()).observe(document.documentElement);}catch(_){}
+}
+// 现场读数（点大厅页头的版本号显示，app.js）：真机上转屏不对时，拿它看 iOS 报的视口、屏幕和设备方向，和这里算出来的转向对不对得上
+function orientInfo(){
+ let o='?';try{o=screen.orientation&&screen.orientation.type||String(window.orientation);}catch(_){}
+ return `视口 ${innerWidth}×${innerHeight} · 屏幕 ${screen.width}×${screen.height} · 设备 ${o} · 算得 ${V.vw}×${V.vh} 转${V.rot}° · ${document.documentElement.classList.contains('land')?'横':'竖'}${FILL?' · 主屏':''}`;
 }
 // 指针事件的屏幕坐标 → 转过之后的页面坐标（90：页面顺时针转，竖着的手机要逆时针横过来、顶部朝左看；-90 反过来）。宽高用 applyOrient 量的，和 body 的位移一致
 function toLogical(e){const r=V.rot;return r===90?{x:e.clientY,y:V.vw-e.clientX}:r===-90?{x:V.vh-e.clientY,y:e.clientX}:{x:e.clientX,y:e.clientY};}
 
-return Object.freeze({ORIENT,applyOrient,setOrient,watchViewport,toLogical});
+return Object.freeze({ORIENT,applyOrient,setOrient,watchViewport,orientInfo,toLogical});
 })();
 /* ---- platform/state.js ---- */
 __m[15]=(function(){
@@ -2761,9 +2778,9 @@ __m[24]=(function(){
 /* ================= 平台层入口 =================
  电脑版、手机版两套界面层都装上：布局在打开时按设备决定（detect.js），操作和 HUD 按最近一次输入随时切换（state.js SCHEME）。
  对外：initInput(app) 装上输入监听 · active() 当前生效的平台对象 · useTouch(v) 切换操作方式 · enterRaid / leaveRaid / syncTouch 管触屏按键区 ·
- ORIENT / applyOrient / setOrient / watchViewport 画面方向和视口尺寸（orient.js）。 */
+ ORIENT / applyOrient / setOrient / watchViewport / orientInfo 画面方向和视口尺寸（orient.js）。 */
 const {SCHEME,isT,setScheme}=__m[15];
-const {ORIENT:OR,applyOrient:applyO,setOrient:setO,watchViewport:watchV}=__m[14];
+const {ORIENT:OR,applyOrient:applyO,setOrient:setO,watchViewport:watchV,orientInfo:infoO}=__m[14];
 const {PF_DESKTOP}=__m[19];
 const {PF_MOBILE}=__m[23];
 const {initDesktopInput,mouseDown,mouseMove,mouseUp,releaseKeys}=__m[18];
@@ -2774,6 +2791,7 @@ const ORIENT=OR;
 const applyOrient=applyO;
 const setOrient=setO;
 const watchViewport=watchV;
+const orientInfo=infoO;
 const useTouch=(v,force)=>setScheme(v,force);
 const enterRaid=()=>showTouchControls(SCHEME.touch);
 function leaveRaid(){showTouchControls(false);releaseTouch();}
@@ -2799,7 +2817,7 @@ function initInput(app){
  initDesktopInput(hooks);initMobileInput(hooks);
 }
 
-return Object.freeze({active,ORIENT,applyOrient,setOrient,watchViewport,useTouch,enterRaid,leaveRaid,syncTouch,initInput});
+return Object.freeze({active,ORIENT,applyOrient,setOrient,watchViewport,orientInfo,useTouch,enterRaid,leaveRaid,syncTouch,initInput});
 })();
 /* ---- view/render.js ---- */
 __m[25]=(function(){
@@ -3694,7 +3712,7 @@ const {verifyEd25519,randomBytes}=__m[9];
 const {createAnalytics,GC_CODE}=__m[10];
 const {keepAwake,canFullscreen,enterFullscreen,lockOrientation,share,copy,canShareFile,shareFile,canCopyImage,copyImage,download,isStandalone,registerServiceWorker,pageBuild,checkUpdate,applyUpdate,justUpdated}=__m[11];
 const {PLATFORM,MOBILE,switchPlatform}=__m[12];
-const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient,watchViewport}=__m[24];
+const {initInput,active,useTouch,enterRaid,leaveRaid,syncTouch,ORIENT,applyOrient,setOrient,watchViewport,orientInfo}=__m[24];
 const {cv,resize,resetCamera}=__m[13];
 const {render,renderStatic}=__m[25];
 const {createEffects}=__m[26];
@@ -3819,6 +3837,8 @@ function start(data){
  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(app.screen!=='raid')renderStatic(app.bg);});
 }
 watchViewport(onResize);   // resize / 转屏 / 切回前台，iOS 读到旧尺寸时隔一阵再量（platform/orient.js）
+// 点页头的版本号：显示画面方向的现场读数，真机上转屏不对时截图发回来查（platform/orient.js orientInfo）
+try{document.querySelector('.logo .ver').addEventListener('click',()=>toast(orientInfo()));}catch(err){console.error(err);}
 
 /* ---- PWA：离线缓存；从主屏幕打开时不再提示安装。可有可无，出错也不能拦住后面的启动 ---- */
 try{registerServiceWorker();}catch(err){console.error(err);}

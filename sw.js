@@ -1,5 +1,5 @@
 /* 暗礁行动 service worker — offline play */
-const CACHE='reef-b200f318';
+const CACHE='reef-cf8cd366';
 const ASSETS=["./","index.html","manifest.webmanifest","icons/apple-touch-icon.png","icons/favicon-32.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","fonts/ibm-plex-mono-latin-400-normal.woff2","fonts/ibm-plex-mono-latin-600-normal.woff2","fonts/saira-condensed-latin-500-normal.woff2","fonts/saira-condensed-latin-700-normal.woff2","fonts/saira-condensed-latin-800-normal.woff2"];
 // 预缓存和页面导航都去服务器核对（cache:'no-cache'，没变时只回 304）：Pages 给所有文件 max-age=600，走 HTTP 缓存的话刚发布的十分钟里拿到的还是旧页
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS.map(u=>new Request(u,{cache:'no-cache'})))).then(()=>self.skipWaiting()));});
