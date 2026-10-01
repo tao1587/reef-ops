@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="暗礁行动">
 <meta name="format-detection" content="telephone=no">
-<meta name="reef-build" content="cf8cd366">
+<meta name="reef-build" content="cec9ab3a">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -55,7 +55,7 @@ kbd{font:600 11px var(--mono);border:1px solid var(--line2);padding:1px 5px;colo
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-block:4px 14px}
 .logo{font:800 clamp(38px,7vw,64px)/.95 var(--disp);letter-spacing:.08em}
 .logo em{font-style:normal;color:var(--amber)}
-.logo .ver{font:500 10px/1 var(--mono);letter-spacing:.04em;color:var(--muted);vertical-align:top;margin-left:8px;white-space:nowrap}   /* 版本 · 构建号，web/build.mjs 填 */
+.logo .ver{font:500 10px/1 var(--mono);letter-spacing:.04em;color:var(--muted);vertical-align:top;margin-left:8px;white-space:nowrap}   /* 版本号，web/build.mjs 填 */
 .sub{font:600 12px/1.4 var(--mono);letter-spacing:.22em;color:var(--muted);margin-top:8px}
 .wallet{text-align:right;display:flex;flex-direction:column;gap:2px}
 .lbl{font:600 11px var(--mono);letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
@@ -292,7 +292,7 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
 <div id="lobby" class="overlay">
  <div class="wrap">
   <header class="top">
-   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本 · 构建号（和离线缓存名 reef-… 一致）">v0.4.0 · cf8cd366</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
+   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本号（点一下显示构建号和画面方向读数）">v0.5.0</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
    <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button><button class="btn mo" id="orientBtn" style="padding:2px 8px;font-size:11px;margin-left:6px">转横屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
   </header>
   <section class="status" aria-label="我的代号与行动次数">
@@ -3643,7 +3643,9 @@ const {$}=__m[20];
 
 // pref()：当前选择 'auto' 跟随手机 | 'land' 横屏 | 'port' 竖屏 · set(p)：改选择
 function createOrientUI({pref,set}){
- const flip=()=>set(V.W>V.H?'port':'land');   // 快捷按钮：换成和现在画面相反的方向
+ // 快捷按钮：换成和现在画面相反的方向。要的方向就是手机现在拿着的方向（V.vw / V.vh 是没转过的视口）时存「跟随手机」：
+ // 这一下只是把之前的转屏撤回来，存成固定方向的话，之后把手机横过来内容还是竖的，看着像转屏坏了
+ const flip=()=>{const want=V.W>V.H?'port':'land',hold=V.vw>V.vh?'land':'port';set(want===hold?'auto':want);};
  // 按钮文字跟着画面现在的方向；app.js 在转屏和窗口尺寸变化后调
  function sync(){
   const t=V.W>V.H?'竖屏':'横屏';$('orientBtn').textContent='转'+t;$('orientBtnP').textContent='切换到'+t;
@@ -3837,8 +3839,8 @@ function start(data){
  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(app.screen!=='raid')renderStatic(app.bg);});
 }
 watchViewport(onResize);   // resize / 转屏 / 切回前台，iOS 读到旧尺寸时隔一阵再量（platform/orient.js）
-// 点页头的版本号：显示画面方向的现场读数，真机上转屏不对时截图发回来查（platform/orient.js orientInfo）
-try{document.querySelector('.logo .ver').addEventListener('click',()=>toast(orientInfo()));}catch(err){console.error(err);}
+// 点页头的版本号：显示构建号（和 sw.js 缓存名 reef-… 一致）和画面方向的现场读数，真机上不对劲时截图发回来查（platform/orient.js orientInfo）
+try{document.querySelector('.logo .ver').addEventListener('click',()=>toast(`构建 ${pageBuild()} · ${orientInfo()}`));}catch(err){console.error(err);}
 
 /* ---- PWA：离线缓存；从主屏幕打开时不再提示安装。可有可无，出错也不能拦住后面的启动 ---- */
 try{registerServiceWorker();}catch(err){console.error(err);}
