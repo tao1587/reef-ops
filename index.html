@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="暗礁行动">
 <meta name="format-detection" content="telephone=no">
-<meta name="reef-build" content="5486dc57">
+<meta name="reef-build" content="1fa592bd">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -164,6 +164,15 @@ html.rot270 .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
 .kv b{font:700 20px var(--disp);font-variant-numeric:tabular-nums}
 .resItems{display:flex;flex-wrap:wrap;gap:6px}
 .tag{font-size:12px;padding:3px 8px;border:1px solid var(--rc);color:var(--rc)}
+.tag.new{background:color-mix(in srgb,var(--rc) 18%,transparent);font-weight:700}   /* 收藏册第一次带出（view/raid-ui.js showSummary） */
+/* 收藏册（view/lobby.js renderCollect）：没带出过的变暗、虚线框；代号旁的称号 */
+.ctier{display:flex;flex-direction:column;gap:5px;padding:6px 0;border-bottom:1px solid #182327}
+.ctier .lbl{color:var(--rc)}.ctier .lbl .ok{color:var(--teal)}
+.cits{display:flex;flex-wrap:wrap;gap:4px}
+.ci{font-size:12px;padding:2px 7px;border:1px solid var(--rc);color:var(--rc)}
+.ci.no{opacity:.35;border-style:dashed}
+.who .title{font:600 11px var(--mono);color:var(--amber);letter-spacing:.06em;margin-left:6px}
+.who .title:empty{display:none}
 /* ---------- phase 1: code name, plays, invites, score card ---------- */
 .status{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);padding:10px 14px}
 .status .who{display:flex;align-items:baseline;gap:8px;min-width:0}
@@ -202,7 +211,7 @@ html.rot90 .cardPrev{flex-direction:row;align-items:flex-start;gap:16px}html.rot
 @media(max-width:880px){.desktop .grid{grid-template-columns:1fr}}
 .desktop .deploy{grid-template-columns:1fr 1fr auto}
 @media(max-width:780px){.desktop .deploy{grid-template-columns:1fr}}
-.desktop #rankCard{grid-column:1/-1}
+.desktop #rankCard,.desktop #collectCard{grid-column:1/-1}
 .desktop #game{cursor:crosshair}
 
 /* ================= 手机版专属样式：触屏按键、分页大厅、底部出发栏、不挡角色的搜索面板 ================= */
@@ -249,8 +258,10 @@ html.touch .lr .m{font-size:10px;white-space:nowrap;overflow:hidden;text-overflo
 html.touch .lr .sw{position:absolute;top:3px;right:3px;width:auto;height:auto;padding:1px 4px;font-size:9.5px}
 html.touch #lootList .empty{grid-column:1/-1;padding:8px}
 html.touch .sm{padding:8px 12px;font-size:13px}
-/* 横屏的面板压在角色南边、底部生命条（高 40，platform/mobile/hud.js vitRect）上面，限高到一行半（露出半行提示还能往下翻），背包格数左上面板已有 */
-html.land.touch #loot{top:auto;bottom:calc(56px + var(--sa-b));left:calc(max(180px,26%) + var(--sa-l));right:calc(214px + var(--sa-r));transform:none;width:auto;max-width:440px;margin-inline:auto;max-height:min(116px,calc(50% - 92px - var(--sa-b)))}
+/* 横屏的面板放在左边一列：左上面板（下沿 86）下面，最多到底部生命条（platform/mobile/hud.js vitRect，顶在下 50）上面 10px，高度随物品多少；宽 min(264, 30%) 放两列格子，
+ 右边停在角色（中线左 70px）和底部生命条左边。以前放在两只拇指之间的底边，横屏只露一行半。背包格数左上面板已有；消息这时挪到顶部（hud.js lootL）。
+ 面板盖住的那块按不出摇杆，挪开要先点 ✕ 或点画面别处关面板，或在面板外的左半屏按摇杆（走出 80 自动关） */
+html.land.touch #loot{top:calc(96px + var(--sa-t));bottom:auto;left:calc(14px + var(--sa-l));right:auto;transform:none;width:min(264px,30%);max-width:none;margin:0;max-height:calc(100% - 156px - var(--sa-t) - var(--sa-b))}
 html.land.touch #loot header small{display:none}
 
 /* ---------- phone lobby ---------- */
@@ -293,18 +304,18 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
 <div id="lobby" class="overlay">
  <div class="wrap">
   <header class="top">
-   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本号（点一下显示构建号和画面方向读数）">v0.5.1</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
+   <div><div class="logo">暗礁<em>行动</em><span class="ver" title="版本号（点一下显示构建号和画面方向读数）">v0.6.0</span></div><div class="sub">OPERATION REEF · 港区撤离作战</div></div>
    <div class="wallet"><span class="lbl">可用资金 <button class="btn fs" id="fsBtn" hidden style="padding:2px 8px;font-size:11px;margin-left:6px">全屏</button><button class="btn mo" id="orientBtn" style="padding:2px 8px;font-size:11px;margin-left:6px">转横屏</button></span><b id="money">¥0</b><span class="stats" id="careerStats"></span></div>
   </header>
   <section class="status" aria-label="我的代号与行动次数">
-   <div class="who"><span class="lbl">代号</span><b id="myName"></b><button class="linkbtn" id="renameBtn">改名</button></div>
+   <div class="who"><span class="lbl">代号</span><b id="myName"></b><small class="title" id="myTitle"></small><button class="linkbtn" id="renameBtn">改名</button></div>
    <div class="plays" id="playsInfo"></div>
    <div class="tools"><button class="btn" id="inviteBtn">邀请好友</button><button class="btn" id="passBtn">口令 / 链接</button></div>
   </section>
   <nav class="tabs" aria-label="大厅分页"><button data-tab="gear" class="on">配装</button><button data-tab="stash">仓库</button><button data-tab="rank">战绩</button><button data-tab="help">玩法</button></nav>
   <section class="deploy">
-   <button class="mode" data-mode="n" id="modeN"><b><span class="long">港区 · </span>常规</b><span>巡逻散兵为主，适合熟悉地形。限时 10 分钟。</span><span class="req">无入场要求</span></button>
-   <button class="mode" data-mode="x" id="modeX"><b><span class="long">港区 · </span>机密</b><span>雇佣兵守卫各区，首领「铁锚」坐镇行政大楼，高价值物资翻倍。限时 12 分钟。</span><span class="req" id="reqX">入场配装价值 ≥ ¥60,000</span></button>
+   <button class="mode" data-mode="n" id="modeN"><b><span class="long">港区 · </span>常规</b><span>巡逻散兵为主，适合熟悉地形。限时 15 分钟。</span><span class="req">无入场要求</span></button>
+   <button class="mode" data-mode="x" id="modeX"><b><span class="long">港区 · </span>机密</b><span>雇佣兵守卫各区，首领「铁锚」坐镇行政大楼，高价值物资翻倍。限时 18 分钟。</span><span class="req" id="reqX">入场配装价值 ≥ ¥60,000</span></button>
    <button class="primary" id="deployBtn">开始行动<small id="deployInfo"></small></button>
   </section>
   <div class="grid">
@@ -323,12 +334,16 @@ html:not(.mobile) .mo{display:none}   /* 画面方向按钮只在手机版布局
     <div class="tools"><button class="btn" id="shareLastBtn" hidden>分享上一局战绩图</button></div>
     <div id="myRaids"></div>
    </section>
+   <section class="card" data-pane="stash" id="collectCard">
+    <h2>收藏册 <small id="collectInfo"></small></h2>
+    <div id="collect"></div>
+   </section>
   </div>
   <details class="help" open data-pane="help">
    <summary>操作与规则</summary>
    <p class="kb"><kbd>WASD</kbd> 移动 · <kbd>鼠标</kbd> 瞄准 / 左键射击 · <kbd>Shift</kbd> 冲刺 · <kbd>R</kbd> 换弹 · <kbd>F</kbd> 搜索 / 再按全部拾取 · <kbd>H</kbd> 治疗 · <kbd>G</kbd> 修甲 · <kbd>Tab</kbd> 背包 · <kbd>M</kbd> 地图 · <kbd>Esc</kbd> 暂停。</p>
    <p class="tc">左半屏任意位置拖动移动，推到底自动奔跑；按住右下角开火键会自动瞄准视野内最近的敌人，按住后拖动可手动指定方向。靠近容器点「搜索」打开，再点一次全部拾取，在画面上轻点一下关闭；「换弹」「治疗」在开火键旁边，带着陶瓷插板、护甲受损时旁边还会出现「修甲」；「背包」「地图」「暂停」在上方。</p>
-   <p>搜索容器会逐件揭示物品，品质越高揭示越慢；背包放不下全部时，「全部拾取」挑总价值最高的一组（打勾的）。护甲受损时用陶瓷插板「修甲」，不用打开背包。在时限内抵达本局开放的撤离点并停留 6 秒即撤离成功，带出的物资进入仓库。阵亡则失去全部配装和背包，只有安全箱里的东西能保住：安全箱开局 2 格，本局每击倒 3 人多 1 格（最多 6 格），拾取时自动放进最值钱的物品。开火声会引来附近敌人。</p>
+   <p>搜索容器会逐件揭示物品，品质越高揭示越慢；背包放不下全部时，「全部拾取」挑总价值最高的一组（打勾的）。护甲受损时用陶瓷插板「修甲」，不用打开背包。在时限内抵达本局开放的撤离点并停留 6 秒即撤离成功，带出的物资进入仓库。阵亡则失去全部配装和背包，只有安全箱里的东西能保住：安全箱开局 2 格（收藏册集齐稀有、史诗各永久多 1 格），本局每击倒 3 人多 1 格（最多 6 格），拾取时自动放进最值钱的物品。击倒全部敌人即「清场」：全部撤离点开放，公路上落下一个空投箱（必有史诗或传说），还有清场加分。传说物品只在保险柜、服务器、首领身上和空投里。开火声会引来附近敌人。</p>
    <p>当前是<b id="uiNow"></b>界面（按设备自动选择）。<button class="linkbtn" id="uiSwitch"></button></p>
    <p class="mo">画面方向：<span id="orientOpts"><button class="linkbtn" data-orient="auto">跟随手机</button> · <button class="linkbtn" data-orient="land">横屏</button> · <button class="linkbtn" data-orient="port">竖屏</button></span>。选的方向和手机拿的方向不一样时，整个画面会转过来，手机锁了自动旋转也能横着玩。</p>
   </details>
@@ -1058,13 +1073,15 @@ const ARMORS={
 const BAGS={none:{n:'胸挂口袋',cap:8,price:0},b1:{n:'小型背包',cap:16,price:5500},b2:{n:'战术背包',cap:26,price:15000},b3:{n:'大型登山包',cap:38,price:29000}};
 const MEDS={band:{n:'绷带',heal:22,t:1.8,price:700},kit:{n:'急救包',heal:65,t:4,price:3200}};
 const PLATE={fix:40,t:3};   // 陶瓷插板（物品 plate）：局内「修甲」或在背包里「使用」，防弹衣耐久 +40（不超过上限），用时 3 秒
-// 安全箱：开局 2 格，本局每击倒 3 人 +1 格，最多 6 格（阵亡也保留，见 core/raid.js packSafe）
+// 安全箱：开局 2 格，本局每击倒 3 人 +1 格，最多 6 格（阵亡也保留，见 core/raid.js packSafe）；bonus 是收藏册给的永久起始格数（COLLECT）
 const SAFE_CAP={base:2,per:3,max:6};
-function safeCapAt(kills){return Math.min(SAFE_CAP.max,SAFE_CAP.base+Math.floor(kills/SAFE_CAP.per));}
+function safeCapAt(kills,bonus=0){return Math.min(SAFE_CAP.max,SAFE_CAP.base+bonus+Math.floor(kills/SAFE_CAP.per));}
+// 收藏册（core/profile.js collectInfo）：带出过的物品种类按品质记下来，集齐稀有、史诗各让安全箱起始 +1 格，集齐传说得称号
+const COLLECT={safe:{3:1,4:1},title:5,titleName:'传说收藏家'};
 function gearPrice(id){return (WEAPONS[id]||ARMORS[id]||BAGS[id]||{price:0}).price;}
 
 /* ---- modes: 限时（秒）与入场配装要求 ---- */
-const MODES={n:{time:600,minKit:0},x:{time:720,minKit:60000}};
+const MODES={n:{time:900,minKit:0},x:{time:1080,minKit:60000}};
 
 /* ---- enemies ---- */
 const EK={
@@ -1075,20 +1092,25 @@ const EK={
 };
 
 /* ---- loot containers ---- */
+// 稀缺：传说只出在保险柜、服务器（有人守的区域）、首领遗体和清场空投里；普通容器不出传说，史诗也压得很低
 const CONT={
- sundry:{n:'杂物箱',c:[2,4],rw:[50,30,14,5,1,.12],cats:null,sp:{ammo:.25,band:.15}},
- tool:{n:'工具箱',c:[2,3],rw:[40,35,18,6,1,.1],cats:['tool','elec'],sp:{ammo:.2}},
- med:{n:'医疗箱',c:[1,3],rw:[30,40,20,8,2,.1],cats:['med'],sp:{band:.8,kit:.45}},
- weapon:{n:'武器箱',c:[1,3],rw:[30,40,20,8,2,.2],cats:['tool'],sp:{ammo:.95}},
- pc:{n:'电脑',c:[1,3],rw:[15,30,35,15,4,.45],cats:['elec','doc'],sp:{}},
- cabinet:{n:'文件柜',c:[1,3],rw:[20,30,28,15,6,.5],cats:['doc','valu'],sp:{}},
- wardrobe:{n:'衣柜',c:[1,3],rw:[40,32,18,8,2,.3],cats:['valu','misc'],sp:{band:.2}},
- bag:{n:'旅行包',c:[2,4],rw:[35,32,20,10,3,.4],cats:null,sp:{band:.2,ammo:.15}},
+ sundry:{n:'杂物箱',c:[2,4],rw:[50,30,14,5,.5,0],cats:null,sp:{ammo:.25,band:.15}},
+ tool:{n:'工具箱',c:[2,3],rw:[40,35,18,6,.5,0],cats:['tool','elec'],sp:{ammo:.2}},
+ med:{n:'医疗箱',c:[1,3],rw:[30,40,20,8,1,0],cats:['med'],sp:{band:.8,kit:.45}},
+ weapon:{n:'武器箱',c:[1,3],rw:[30,40,20,8,1,0],cats:['tool'],sp:{ammo:.95}},
+ pc:{n:'电脑',c:[1,3],rw:[15,30,35,15,2,0],cats:['elec','doc'],sp:{}},
+ cabinet:{n:'文件柜',c:[1,3],rw:[20,30,28,15,3,0],cats:['doc','valu'],sp:{}},
+ wardrobe:{n:'衣柜',c:[1,3],rw:[40,32,18,8,1,0],cats:['valu','misc'],sp:{band:.2}},
+ bag:{n:'旅行包',c:[2,4],rw:[35,32,20,10,1.5,0],cats:null,sp:{band:.2,ammo:.15}},
  safe:{n:'保险柜',c:[1,3],rw:[0,5,25,35,28,6],cats:['valu','doc'],sp:{}},
  server:{n:'服务器',c:[1,2],rw:[0,10,35,35,15,4],cats:['elec'],sp:{}},
+ // 空投箱：清场后才落下（core/raid.js clearField），不在地图上放；c、rw 是保底那件之外的附加物品，保底见 rollAirdrop
+ airdrop:{n:'空投箱',c:[2,3],rw:[0,0,40,40,20,0],cats:null,sp:{ammo:1,kit:1}},
  body:{n:'遗体',c:[0,0],rw:[1],cats:null,sp:{}}
 };
-const CONT_GLYPH={sundry:'杂',tool:'工',med:'医',weapon:'武',pc:'脑',cabinet:'档',wardrobe:'衣',bag:'包',safe:'保',server:'服',body:'✕'};
+const CONT_GLYPH={sundry:'杂',tool:'工',med:'医',weapon:'武',pc:'脑',cabinet:'档',wardrobe:'衣',bag:'包',safe:'保',server:'服',airdrop:'空',body:'✕'};
+// 空投保底：常规模式史诗或传说（传说占 AIRDROP_LEG.n），机密必出传说
+const AIRDROP_LEG={n:.35,x:1};
 function rollItem(rw,cats,rng){
  const r=rng.wpick(rw);let pool=BY_R[r];
  if(cats&&rng.random()<.6){const f=pool.filter(k=>cats.includes(iCat(k)));if(f.length)pool=f;}
@@ -1102,8 +1124,13 @@ function rollLoot(type,mode,rng){
  for(const s in d.sp)if(rng.random()<d.sp[s])out.push({sp:s,rev:false});
  return out;
 }
+// 空投箱的内容：保底一件史诗或传说放最前面（最先揭示），后面是 CONT.airdrop 的附加物品和补给
+function rollAirdrop(mode,rng){
+ const top=rng.random()<AIRDROP_LEG[mode==='x'?'x':'n']?5:4;
+ return[{id:rollItem(top===5?[0,0,0,0,0,1]:[0,0,0,0,1,0],null,rng),rev:false},...rollLoot('airdrop',mode,rng)];
+}
 
-return Object.freeze({RC,RN,REVEAL,ITEMS,BY_R,iName,iR,iSize,iVal,iCat,WEAPONS,ARMORS,BAGS,MEDS,PLATE,SAFE_CAP,safeCapAt,gearPrice,MODES,EK,CONT,CONT_GLYPH,rollItem,rollLoot});
+return Object.freeze({RC,RN,REVEAL,ITEMS,BY_R,iName,iR,iSize,iVal,iCat,WEAPONS,ARMORS,BAGS,MEDS,PLATE,SAFE_CAP,safeCapAt,COLLECT,gearPrice,MODES,EK,CONT,CONT_GLYPH,AIRDROP_LEG,rollItem,rollLoot,rollAirdrop});
 })();
 /* ---- core/world.js ---- */
 __m[3]=(function(){
@@ -1353,14 +1380,16 @@ function createWorld(mode,rng){
  const hqT=[['cabinet',3],['pc',3],['safe',mode==='x'?1.4:.7],['server',1],['sundry',2],['med',1]];
  placeConts({x:1134,y:194,w:752,h:492},mode==='x'?12:10,hqT);
  conts.push(mkCont('safe',1420,230));if(mode==='x')conts.push(mkCont('server',1600,230));
+ // 普通区域的箱子比以前少三分之一（仓库 12→7、每栋民房 3→2、码头 11→6、油罐区 5→3、北侧空地 3→2）：以前一局 66 个、240 格物品，
+ // 背包最多 38 格，四成箱子只有白绿货，开箱成了体力活；值钱的行政大楼和码头办公室不动
  const whT=[['tool',3],['weapon',2],['sundry',3],['med',1]];
- placeConts({x:94,y:124,w:612,h:332},6,whT);placeConts({x:94,y:574,w:612,h:352},6,whT);
- for(const h of houses)placeConts(h,3,[['wardrobe',2],['bag',2],['med',1],['pc',1],['sundry',1],['safe',.35]]);
- placeConts({x:110,y:1170,w:1700,h:860},11,[['sundry',3],['tool',2],['weapon',1.2],['bag',1.2],['safe',.25]]);
+ placeConts({x:94,y:124,w:612,h:332},4,whT);placeConts({x:94,y:574,w:612,h:352},3,whT);
+ for(const h of houses)placeConts(h,2,[['wardrobe',2],['bag',2],['med',1],['pc',1],['sundry',1],['safe',.35]]);
+ placeConts({x:110,y:1170,w:1700,h:860},6,[['sundry',3],['tool',2],['weapon',1.2],['bag',1.2],['safe',.25]]);
  placeConts({x:1864,y:1234,w:232,h:162},3,[['pc',2],['cabinet',2],['sundry',1],['safe',.5],['med',.6]]);
  placeConts({x:1864,y:1574,w:232,h:162},3,[['pc',2],['cabinet',2],['sundry',1],['safe',.5],['med',.6]]);
- placeConts({x:2170,y:1170,w:780,h:880},5,[['tool',3],['sundry',2],['weapon',1]]);
- placeConts({x:810,y:40,w:280,h:940},3,[['sundry',2],['bag',2],['weapon',1]]);
+ placeConts({x:2170,y:1170,w:780,h:880},3,[['tool',3],['sundry',2],['weapon',1]]);
+ placeConts({x:810,y:40,w:280,h:940},2,[['sundry',2],['bag',2],['weapon',1]]);
 
  return{mode,obs,floors,zones,conts,roads,extracts,spawns,labels,deco,
   query,castSeg,losClear,fireClear,moveEnt,findPath,randFree,zoneAt};
@@ -1375,9 +1404,10 @@ __m[4]=(function(){
  - 每帧 raid.update(dt, control)。control 是平台层的操作对象：read() 给出「往哪走、跑不跑、开不开火」，aim() 给出朝向。
  - 画面、音效、震动都靠事件：raid.events 里依次放 {type, …}，外层每帧取走（见 view/effects.js）。
  - 玩家命令（键盘和触屏按钮共用）：raid.command('inv' | 'back' | 'interact' | 'reload' | 'heal' | 'fix' | 'map')；背包里点「使用」的陶瓷插板由界面调 raid.usePlate(i)。
+ - 敌人全部击倒时「清场」（clearField）：全部撤离点开放、落下空投箱，结果带 clear；发 {type:'clear'}。
  - 对局结束时发 {type:'end', result}；存档结算、记录积分由外层做（core/profile.js、core/meta.js）。 */
 const {TAU,clamp,angDiff}=__m[1];
-const {BY_R,REVEAL,WEAPONS,ARMORS,BAGS,MEDS,PLATE,MODES,EK,iName,iR,iSize,iVal,rollItem,safeCapAt}=__m[2];
+const {BY_R,REVEAL,WEAPONS,ARMORS,BAGS,MEDS,PLATE,MODES,EK,iName,iR,iSize,iVal,rollItem,rollAirdrop,safeCapAt}=__m[2];
 const {createWorld,segCirc}=__m[3];
 
 const VIS_R=760;
@@ -1385,7 +1415,7 @@ const AREAS={hq:{x:1134,y:194,w:752,h:492},wh:{x:94,y:124,w:612,h:800},dock:{x:1
  tank:{x:2170,y:1170,w:780,h:880},north:{x:800,y:40,w:300,h:950},office:{x:1850,y:1220,w:260,h:530},road:{x:40,y:1000,w:2920,h:130}};
 function fighter(x,y,o){return Object.assign({x,y,r:14,a:0,hp:100,maxhp:100,cd:0,reload:0,flash:0,hitT:0,dead:false},o);}
 
-// loadout：{w, a, b, meds:{band, kit}, value}（见 core/profile.js loadout()）；diff：敌人反应与枪法的放宽倍数（手机版 1.15）
+// loadout：{w, a, b, meds:{band, kit}, value, safeBonus}（见 core/profile.js loadout()；safeBonus 是收藏册给的安全箱起始格数，没有按 0）；diff：敌人反应与枪法的放宽倍数（手机版 1.15）
 function createRaid({mode,loadout,rng,diff=1}){
  const {rnd,ri,pick,gauss,random}=rng;
  const world=createWorld(mode,rng),conts=world.conts,{castSeg,losClear,fireClear,moveEnt,findPath,randFree}=world;
@@ -1395,12 +1425,13 @@ function createRaid({mode,loadout,rng,diff=1}){
  const pl=fighter(sp.x,sp.y,{wid:eq.w,w:W,mag:W.mag,ammo:W.mag*4,armor:{...ARMORS[eq.a],cur:ARMORS[eq.a].dur},
   bag:[],bagId:eq.b,cap:BAGS[eq.b].cap,safe:[],meds:{band:eq.meds.band,kit:eq.meds.kit},stam:100,heal:null,fix:null,trig:true,moving:false,sprinting:false,a:-Math.PI/2});
  const G={mode,t:0,T,time:T,world,pl,enemies:[],bullets:[],events:[],kills:0,killed:{},extT:0,ext:pool.slice(0,2),extZone:null,
-  lootC:null,lootVer:0,near:null,paused:false,over:false,result:null,zone:'',zoneCk:0,valueIn:eq.value,bigMap:false,invOpen:false,stepT:0,plateTip:false};
+  lootC:null,lootVer:0,near:null,paused:false,over:false,result:null,zone:'',zoneCk:0,valueIn:eq.value,bigMap:false,invOpen:false,stepT:0,plateTip:false,
+  cleared:false,airdrop:null};
  let pathBudget=0;
  const emit=(type,o)=>{G.events.push(Object.assign({type},o));};
  const msg=(t,c,life)=>emit('msg',{t,c:c||'#d9e1de',life:life||4});
  const size=ids=>ids.reduce((s,id)=>s+iSize(id),0);
- const bagUsed=()=>size(pl.bag),safeUsed=()=>size(pl.safe),safeCap=()=>safeCapAt(G.kills);
+ const bagUsed=()=>size(pl.bag),safeUsed=()=>size(pl.safe),safeCap=()=>safeCapAt(G.kills,eq.safeBonus||0);
  const bagValue=()=>pl.bag.reduce((s,id)=>s+iVal(id),0)+pl.safe.reduce((s,id)=>s+iVal(id),0);
 
  /* ---- spawning ---- */
@@ -1626,7 +1657,7 @@ function createRaid({mode,loadout,rng,diff=1}){
   e.dead=true;G.kills++;G.killed[e.kind]=(G.killed[e.kind]||0)+1;emit('kill');
   msg(`击倒 ${e.d.n} · ${WEAPONS[e.wid].n}`,e.kind==='boss'?'#f2c14e':'#e5484d');
   if(safeCap()>cap0)autoSafe(`安全箱扩到 ${safeCap()} 格`);
-  const rw=e.kind==='scav'?[45,35,15,4,1,.1]:e.kind==='boss'?[0,8,26,32,26,8]:[20,35,28,12,4,.6];
+  const rw=e.kind==='scav'?[45,35,15,4,1,0]:e.kind==='boss'?[0,8,26,32,26,8]:[20,35,28,12,4,0];   // 传说只给首领（和保险柜、服务器、空投）
   const n=e.kind==='scav'?ri(1,3):e.kind==='boss'?ri(3,5):ri(2,4),items=[];
   for(let i=0;i<n;i++)items.push({id:rollItem(rw,null,rng)});
   if(e.kind==='scav'&&random()<.6)items.push({id:'dogtag'});
@@ -1636,6 +1667,16 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(random()<.35)items.push({id:'wpnparts'});
   items.push({sp:'ammo'});if(random()<.45)items.push({sp:e.kind==='scav'?'band':'kit'});
   conts.push({type:'body',x:e.x,y:e.y,a:e.a,col:e.d.col,items:items.map(o=>({...o,rev:false})),opened:false,revT:0,name:`${e.d.n}的遗体`});
+  if(!G.cleared&&G.enemies.every(o=>o.dead))clearField();
+ }
+ // 清场：敌人全部击倒。打满整局的奖励——全部撤离点开放（不用再穿图去指定的两个），公路上落一个空投箱（保底史诗 / 传说，data.js rollAirdrop），
+ // 结果带 clear（积分加清场分、战绩图「全歼」徽章，见 core/meta.js、view/share-card.js）。空投落点离玩家至少 450，要走过去拿
+ function clearField(){
+  G.cleared=true;G.ext=world.extracts.slice();
+  let p=null;for(let k=0;k<40;k++){const q=randFree(AREAS.road,24);if(!q)continue;p=q;if(Math.hypot(q.x-pl.x,q.y-pl.y)>=450)break;}
+  if(!p)p={x:pl.x,y:pl.y};
+  G.airdrop={type:'airdrop',x:p.x,y:p.y,items:rollAirdrop(mode,rng),opened:false,revT:0,name:'空投箱'};conts.push(G.airdrop);
+  emit('clear');msg(`港区已清场：全部撤离点开放，空投箱落在${world.zoneAt(p.x,p.y)}`,'#f2c14e',7);
  }
 
  /* ================= looting, inventory & extraction ================= */
@@ -1732,7 +1773,7 @@ function createRaid({mode,loadout,rng,diff=1}){
   if(G.over)return;G.over=true;closeLoot();G.invOpen=false;
   const kept=(ok?pl.bag.slice():[]).concat(pl.safe);
   const value=kept.reduce((s,id)=>s+iVal(id),0);
-  G.result={ok,info,value,items:kept,kills:G.kills,killed:{...G.killed},meds:{...pl.meds},dur:G.T-G.time,lost:ok?0:G.valueIn,mode:G.mode};
+  G.result={ok,info,value,items:kept,kills:G.kills,killed:{...G.killed},meds:{...pl.meds},dur:G.T-G.time,lost:ok?0:G.valueIn,mode:G.mode,clear:G.cleared};
   emit('end',{result:G.result});
  }
 
@@ -1786,16 +1827,24 @@ return Object.freeze({VIS_R,createRaid,falloff,bestFit});
 })();
 /* ---- core/profile.js ---- */
 __m[5]=(function(){
-/* ================= 存档：资金、仓库、配装、战绩统计 =================
+/* ================= 存档：资金、仓库、配装、战绩统计、收藏册 =================
  规则在这里（买装备、带药、卖物资、对局结算）；读写本机存储由外层注入 store：{load() → 对象或 null, save(对象)}。 */
-const {ITEMS,MEDS,MODES,WEAPONS,ARMORS,BAGS,gearPrice,iVal}=__m[2];
+const {ITEMS,MEDS,MODES,WEAPONS,ARMORS,BAGS,COLLECT,gearPrice,iR,iVal}=__m[2];
 
 const SAVE_KEY='reef-ops-save-v1';
 const MED_CAP=8;   // 每种医疗品最多存 8 个：大厅买、撤离带回都截在这里
 function newSave(){return{money:150000,stash:['watch','gpu','coffee','screw','radio','manifest'],
  owned:{smg:1,a2:1,b1:1},equip:{w:'smg',a:'a2',b:'b1'},meds:{band:3,kit:1},medBuy:{band:0,kit:0},
- stats:{raids:0,ext:0,kills:0,best:0},mode:'n'};}
+ stats:{raids:0,ext:0,kills:0,best:0},mode:'n',found:{}};}
 const SLOTS={w:WEAPONS,a:ARMORS,b:BAGS};
+// 收藏册：found 是带出过的物品 id → 1。按品质分 6 组，got 是每组收集了几种、done 是集齐没有；
+// 集齐 COLLECT.safe 里的品质加安全箱起始格数（带进对局，core/raid.js），集齐 COLLECT.title 那档得称号（大厅和战绩图上显示）
+function collectInfo(found){
+ const tiers=[[],[],[],[],[],[]];for(const id in ITEMS)tiers[iR(id)].push(id);
+ const done=tiers.map(ids=>ids.every(id=>found[id]));let safeBonus=0;
+ for(const r in COLLECT.safe)if(done[r])safeBonus+=COLLECT.safe[r];
+ return{tiers,got:tiers.map(ids=>ids.filter(id=>found[id]).length),done,safeBonus,title:done[COLLECT.title]?COLLECT.titleName:''};
+}
 function kitValue(S){const e=S.equip;return gearPrice(e.w)+gearPrice(e.a)+gearPrice(e.b)+S.meds.band*MEDS.band.price+S.meds.kit*MEDS.kit.price;}
 
 function createProfile(store){
@@ -1833,19 +1882,25 @@ function createProfile(store){
   sell(i){const id=S.stash[i];if(!id)return false;S.money+=iVal(id);S.stash.splice(i,1);persist();return true;},
   sellWhere(fn){let got=0;S.stash=S.stash.filter(id=>{if(ITEMS[id]&&fn(id)){got+=iVal(id);return false;}return true;});S.money+=got;persist();},
   reset(){S=newSave();persist();},
+  collection:()=>collectInfo(S.found),
   // 带进对局的东西（core/raid.js createRaid 的 loadout）
-  loadout(){const e=S.equip;return{w:e.w,a:e.a,b:e.b,meds:{band:S.meds.band,kit:S.meds.kit},value:kitValue(S)};},
-  // 对局结算：撤离成功带回背包物资和剩余医疗品（每种截到 MED_CAP，多的丢掉）；失败丢掉全部配装，只保住安全箱。出过一局，之前买的药就不能再退
+  loadout(){const e=S.equip;return{w:e.w,a:e.a,b:e.b,meds:{band:S.meds.band,kit:S.meds.kit},value:kitValue(S),safeBonus:collectInfo(S.found).safeBonus};},
+  // 对局结算：撤离成功带回背包物资和剩余医疗品（每种截到 MED_CAP，多的丢掉）；失败丢掉全部配装，只保住安全箱。出过一局，之前买的药就不能再退。
+  // 带出来的物品记进收藏册（失败局的安全箱也算）；返回 {fresh 第一次带出的物品, unlocked 这局刚集齐的品质}，给结算页显示
   settle(r){
+   const before=collectInfo(S.found),fresh=[];
+   for(const id of r.items)if(ITEMS[id]&&!S.found[id]){S.found[id]=1;fresh.push(id);}
+   const after=collectInfo(S.found),unlocked=after.done.map((d,i)=>d&&!before.done[i]?i:-1).filter(i=>i>=0);
    S.stats.raids++;S.stats.kills+=r.kills;S.medBuy={band:0,kit:0};
    if(r.ok){S.stats.ext++;for(const k in MEDS)S.meds[k]=Math.min(MED_CAP,r.meds[k]);}
    else{for(const k in SLOTS){const id=S.equip[k];if(gearPrice(id)>0){S.owned[id]=Math.max(0,(S.owned[id]||0)-1);if(!S.owned[id])S.equip[k]=bestOwned(k);}}S.meds.band=0;S.meds.kit=0;}
    S.stash.push(...r.items);S.stats.best=Math.max(S.stats.best,r.value);persist();
+   return{fresh,unlocked};
   }
  };
 }
 
-return Object.freeze({SAVE_KEY,MED_CAP,newSave,kitValue,createProfile});
+return Object.freeze({SAVE_KEY,MED_CAP,newSave,collectInfo,kitValue,createProfile});
 })();
 /* ---- core/meta.js ---- */
 __m[6]=(function(){
@@ -1858,7 +1913,7 @@ const {pad2}=__m[1];
 
 const META_KEY='reef-ops-meta-v1';
 const RULES={freePerDay:3,inviteeBonus:3,inviterBonus:5,bonusCap:99,receiptPerDay:4,
- modeMul:{n:1,x:1.5},killPts:{scav:5,merc:15,guard:20,boss:150},extractBonus:20,deathFactor:.5,weekTop:5};
+ modeMul:{n:1,x:1.5},killPts:{scav:5,merc:15,guard:20,boss:150},clearPts:{n:60,x:120},extractBonus:20,deathFactor:.5,weekTop:5};
 
 /* ---- helpers ---- */
 const fmtDate=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
@@ -1893,8 +1948,9 @@ function parsePass(text){
 
 /* ---- 积分 ---- */
 const killPoints=killed=>Object.keys(killed||{}).reduce((s,k)=>s+(RULES.killPts[k]||0)*killed[k],0);
+// clear：清场（敌人全部击倒，core/raid.js clearField），清场分和击倒分一样不乘模式倍率，失败局减半
 function raidScore(r){
- const kp=r.killPts||0;
+ const kp=(r.killPts||0)+(r.clear?RULES.clearPts[r.mode]||0:0);
  return r.ok?Math.round(r.value/1000*(RULES.modeMul[r.mode]||1)+kp+RULES.extractBonus):Math.round((r.value/1000+kp)*RULES.deathFactor);
 }
 
@@ -1945,7 +2001,7 @@ function createMeta({store,now,randomBytes,verify,pubkey,revoked=[],baseURL}){
  // 战绩最多留 80 局，但本周的局一局不删（周积分要算全本周），超出时只删上周及更早的
  function record(r){
   const t=now(),killPts=killPoints(r.killed);
-  const rec={t,wk:weekKey(t),mode:r.mode,ok:r.ok,value:r.value,kills:r.kills,killPts,score:raidScore({ok:r.ok,value:r.value,mode:r.mode,killPts})};
+  const clear=!!r.clear,rec={t,wk:weekKey(t),mode:r.mode,ok:r.ok,value:r.value,kills:r.kills,killPts,clear,score:raidScore({ok:r.ok,value:r.value,mode:r.mode,killPts,clear})};
   M.raids.unshift(rec);if(M.raids.length>80)M.raids=M.raids.filter((x,i)=>i<80||x.wk===rec.wk);
   firstRec=r.ok&&!M.firstOk?rec:null;
   if(firstRec){M.firstOk=true;if(M.invitedBy&&!M.receiptKey)M.receiptKey=rnd36(10);}
@@ -2362,6 +2418,8 @@ function drawHUD(G,fx,PF){
  const mw=P.miniW(narrow),mh=Math.round(mw*MH/MW),mx=W-m-P.safeR()-mw,myy=m+P.safeT(),sc=mw/MW;
  panel(mx-4,myy-4,mw+8,mh+8);ctx.globalAlpha=.9;ctx.drawImage(LAYERS.mini,mx,myy,mw,mh);ctx.globalAlpha=1;
  for(const x of G.ext){ctx.strokeStyle='#4fc3b8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(mx+x.x*sc,myy+x.y*sc,5,0,TAU);ctx.stroke();}
+ const ad=G.airdrop&&G.airdrop.items.length?G.airdrop:null;   // 清场空投（core/raid.js clearField）：拿空前在小地图、边缘箭头、大地图上标金色
+ if(ad){ctx.fillStyle='#f2c14e';ctx.fillRect(mx+ad.x*sc-3,myy+ad.y*sc-3,6,6);}
  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.strokeRect(mx+V.left*sc,myy+V.top*sc,W/Z*sc,H/Z*sc);
  ctx.save();ctx.translate(mx+pl.x*sc,myy+pl.y*sc);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,4);ctx.lineTo(-4,-4);ctx.fill();ctx.restore();
  P.top(G,m,narrow);
@@ -2377,11 +2435,12 @@ function drawHUD(G,fx,PF){
  else if(pl.fix)txt(`正在更换陶瓷插板 · ${pl.fix.t.toFixed(1)}s`,W/2,cy,`700 14px ${F_BODY}`,'#4f95e6','center');
  else if(G.near&&!G.lootC&&!pl.dead){const c=G.near,s=(c.opened&&!c.items.length?'已搜空 · ':P.interactHint+(c.opened?'继续搜索 · ':'搜索 · '))+c.name;
   ctx.font=`700 14px ${F_BODY}`;const tw=ctx.measureText(s).width+26;panel(W/2-tw/2,cy-22,tw,32);txt(s,W/2,cy-1,`700 14px ${F_BODY}`,c.opened&&!c.items.length?'#82939a':'#f0a43a','center');}
- // extract edge markers
- for(const x of G.ext){const s=toScreen(x.x,x.y);const pad=34;if(s.x>pad&&s.x<W-pad&&s.y>pad+80&&s.y<H-pad)continue;
+ // extract edge markers（空投也走这一套，金色）
+ for(const x of ad?G.ext.concat(ad):G.ext){const s=toScreen(x.x,x.y);const pad=34;if(s.x>pad&&s.x<W-pad&&s.y>pad+80&&s.y<H-pad)continue;
+  const col=x===ad?'#f2c14e':'#4fc3b8';
   const a=Math.atan2(s.y-H/2,s.x-W/2),sn=Math.sin(a),r=Math.min((W/2-pad-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-P.markerPad(sn))/Math.abs(sn||1e-6));
-  let ex=W/2+Math.cos(a)*r,ey=H/2+Math.sin(a)*r;ey=P.avoid(ex,ey);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#4fc3b8';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,8);ctx.lineTo(-6,-8);ctx.fill();ctx.restore();
-  txt(Math.round(Math.hypot(x.x-pl.x,x.y-pl.y)/10)+'m',ex-Math.cos(a)*22,ey-Math.sin(a)*22+4,`600 11px ${F_MONO}`,'#4fc3b8','center');}
+  let ex=W/2+Math.cos(a)*r,ey=H/2+Math.sin(a)*r;ey=P.avoid(ex,ey);ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-6,8);ctx.lineTo(-6,-8);ctx.fill();ctx.restore();
+  txt(Math.round(Math.hypot(x.x-pl.x,x.y-pl.y)/10)+'m',ex-Math.cos(a)*22,ey-Math.sin(a)*22+4,`600 11px ${F_MONO}`,col,'center');}
  // visible enemies that are off-screen
  for(const e of G.enemies){if(e.dead||!e.vis)continue;const s=toScreen(e.x,e.y);if(s.x>0&&s.x<W&&s.y>0&&s.y<H)continue;
   const a=Math.atan2(s.y-H/2,s.x-W/2),r=Math.min((W/2-18-Math.max(SAFE.l,SAFE.r))/Math.abs(Math.cos(a)||1e-6),(H/2-18)/Math.abs(Math.sin(a)||1e-6));
@@ -2405,6 +2464,8 @@ function drawBigMap(G,PF){
  txt('港区全图',x,y-14,`700 20px ${F_DISP}`,'#d9e1de');txt(PF.touch?'点「地图」关闭':'M 关闭',x+w,y-14,`600 12px ${F_MONO}`,'#82939a','right');
  for(const z of world.zones){if(z.n==='港区公路'||z.n==='栈桥')continue;txt(z.n,x+(z.x+z.w/2)*s,y+(z.y+z.h/2)*s,`700 ${Math.max(11,14*s*3)}px ${F_BODY}`,'rgba(217,225,222,.75)','center','middle');}
  for(const c of world.conts)if(c.opened){ctx.fillStyle=c.items.length?'#8fa3a8':'#3a484d';ctx.fillRect(x+c.x*s-2,y+c.y*s-2,4,4);}
+ const ad=G.airdrop&&G.airdrop.items.length?G.airdrop:null;
+ if(ad){ctx.fillStyle='#f2c14e';ctx.fillRect(x+ad.x*s-5,y+ad.y*s-5,10,10);txt('空投箱',x+ad.x*s,y+ad.y*s-10,`700 12px ${F_BODY}`,'#f2c14e','center');}
  for(const e of world.extracts){const on=G.ext.includes(e);ctx.strokeStyle=on?'#4fc3b8':'#4a5a60';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x+e.x*s,y+e.y*s,70*s+3,0,TAU);ctx.stroke();
   txt(e.n+(on?'':' · 未开放'),x+e.x*s,y+e.y*s-70*s-8,`600 12px ${F_BODY}`,on?'#4fc3b8':'#6b7b80','center');}
  ctx.save();ctx.translate(x+pl.x*s,y+pl.y*s);ctx.rotate(pl.a);ctx.fillStyle='#f0a43a';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,6);ctx.lineTo(-6,-6);ctx.fill();ctx.restore();
@@ -2668,14 +2729,17 @@ const {AIM}=__m[21];
 
 const panelH=()=>V.H>V.W?116:72;   // 左上面板高：竖屏含生命和护甲，横屏只有任务信息
 const VIT_H=40;
-// 横屏底部生命条：左右边界和横屏搜索面板（mobile.css 的 html.land.touch #loot）一样，面板开着时停在它上面
+// 横屏底部生命条：左边界在 max(180, W*.26)，右边让出按键簇 214；横屏搜索面板在左边一列，底边停在它上面 60px 处（mobile.css 的 html.land.touch #loot）
 function vitRect(){const {W,H}=V,l=Math.max(180,W*.26)+SAFE.l,r=W-214-SAFE.r,w=Math.min(300,r-l);return{x:Math.round((l+r-w)/2),y:H-SAFE.b-10-VIT_H,w,h:VIT_H};}
 
+// 横屏开着搜索面板时，左边那列被面板（DOM，盖在画布上）占了：消息挪到顶部，左上面板右边、顶部按键左边那一段（corner 里记下，msgX / msgW 用）
+let lootL=false;
+const cwOf=()=>Math.min(196,V.W*.5-24);
 const HUD_MOBILE={
- corner(G,m,narrow,fx){drawTouchPanel(G,m+SAFE.l,m+SAFE.t,fx.lag);return m+SAFE.t+panelH()+14;},
- msgX:m=>m+2+SAFE.l,miniW:()=>120,safeR:()=>SAFE.r,safeT:()=>SAFE.t,
- // 消息宽度：竖屏停在顶部按键左边；横屏别伸到角色（中线左 70px）那边
- msgW:m=>V.H>V.W?V.W-SAFE.r-178-(m+2+SAFE.l):Math.min(260,V.W*.34),
+ corner(G,m,narrow,fx){drawTouchPanel(G,m+SAFE.l,m+SAFE.t,fx.lag);lootL=V.W>V.H&&!!G.lootC&&!G.over;return lootL?m+SAFE.t+14:m+SAFE.t+panelH()+14;},
+ msgX:m=>lootL?m+SAFE.l+cwOf()+20:m+2+SAFE.l,miniW:()=>120,safeR:()=>SAFE.r,safeT:()=>SAFE.t,
+ // 消息宽度：竖屏停在顶部按键左边；横屏别伸到角色（中线左 70px）那边；横屏搜索时停在顶部按键（右 300）左边
+ msgW:m=>V.H>V.W?V.W-SAFE.r-178-(m+2+SAFE.l):lootL?V.W-SAFE.r-300-(m+SAFE.l+cwOf()+20):Math.min(260,V.W*.34),
  // 区域横幅：竖屏放到顶部按键下面，横屏放到左上面板和顶部按键之间的下沿
  bannerY:()=>V.H>V.W?Math.max(V.H*.2,SAFE.t+246):SAFE.t+100,
  top(){},
@@ -2955,7 +3019,8 @@ function render(fdt,G,fx,PF){
    ctx.fillStyle=c.col;ctx.globalAlpha=.55;ctx.beginPath();ctx.ellipse(0,0,15,10,0,0,TAU);ctx.fill();ctx.globalAlpha=1;ctx.restore();}
   const st=!c.opened?0:c.items.length?1:2,s=c.type==='body'?20:26;
   ctx.fillStyle=c.type==='body'?'rgba(0,0,0,0)':'#1d272a';if(c.type!=='body')ctx.fillRect(c.x-s/2,c.y-s/2,s,s);
-  ctx.strokeStyle=st===0?(c.type==='safe'?'#f2c14e':'#f0a43a'):st===1?'#8fa3a8':'#34434a';ctx.lineWidth=2;ctx.strokeRect(c.x-s/2,c.y-s/2,s,s);
+  ctx.strokeStyle=st===0?(c.type==='safe'||c.type==='airdrop'?'#f2c14e':'#f0a43a'):st===1?'#8fa3a8':'#34434a';ctx.lineWidth=2;ctx.strokeRect(c.x-s/2,c.y-s/2,s,s);
+  if(c.type==='airdrop'&&c.items.length){ctx.strokeStyle=`rgba(242,193,78,${.35+.35*Math.sin(t*4)})`;ctx.beginPath();ctx.arc(c.x,c.y,30+4*Math.sin(t*4),0,TAU);ctx.stroke();}   // 清场空投（core/raid.js clearField），还有东西就一直闪
   if(c.type!=='body'||st<2){ctx.fillStyle=st===2?'#4a5a60':st===0?'#f4d49a':'#c7d3d6';ctx.font=`700 13px ${F_BODY}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.type==='body'?(st?'⋯':'?'):CONT_GLYPH[c.type],c.x,c.y+1);}
   if(c===G.near&&!G.lootC){ctx.strokeStyle=`rgba(240,164,58,${.4+.4*Math.sin(t*6)})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(c.x,c.y,24,0,TAU);ctx.stroke();}
  }
@@ -3041,7 +3106,7 @@ function createEffects(audio){
    case'hurt':sfx.hurt();S.shake=Math.min(10,S.shake+5);PF.hurt();S.hurt.push({a:ev.a,t:1.3});break;
    case'hit':sfx.hit();S.hitMark=.25;break;
    case'reveal':sfx.reveal(ev.r);break;
-   case'extract':sfx.ext();break;
+   case'extract':case'clear':sfx.ext();break;   // 清场和撤离成功同一个音
    case'fix':sfx.heal();break;   // 修甲完成和治疗完成同一个音
    case'armor':case'kill':case'die':case'take':case'reload':case'empty':case'heal':case'beep':sfx[ev.type]();break;
   }
@@ -3065,7 +3130,7 @@ __m[27]=(function(){
 /* ================= 大厅：资金、配装、仓库、模式与出发（两个平台共用的 DOM 界面） =================
  只负责显示和收集点击；买卖、配装等规则在 core/profile.js，次数在 core/meta.js。 */
 const {fmt,fmtK}=__m[1];
-const {WEAPONS,ARMORS,BAGS,MEDS,ITEMS,MODES,RC,iName,iR,iSize,iVal}=__m[2];
+const {WEAPONS,ARMORS,BAGS,MEDS,ITEMS,MODES,RC,RN,COLLECT,iName,iR,iSize,iVal}=__m[2];
 const {$,armConfirm}=__m[20];
 
 const GROUPS=[['w','主武器',WEAPONS],['a','防弹衣',ARMORS],['b','背包',BAGS]];
@@ -3091,7 +3156,7 @@ function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh})
   $('meds').innerHTML=Object.keys(MEDS).map(k=>`<div class="med"><div><div>${MEDS[k].n}</div><div class="st">+${MEDS[k].heal} 生命 · ${fmt(MEDS[k].price)}</div></div>
    <button data-med="${k}" data-d="-1" aria-label="退回一个${MEDS[k].n}"${profile.canRefund(k)?'':' disabled title="只能退回上一局之后在大厅买的"'}>−</button><b>${S.meds[k]}</b><button data-med="${k}" data-d="1" aria-label="购买一个${MEDS[k].n}">+</button></div>`).join('');
   const kv=profile.kitValue();$('kitValue').textContent=`配装价值 ${fmt(kv)}`;
-  renderStash();
+  renderStash();renderCollect();
   const okX=profile.canEnter('x'),minX=MODES.x.minKit;
   $('modeN').classList.toggle('on',MODE==='n');$('modeX').classList.toggle('on',MODE==='x');
   $('reqX').className='req'+(okX?'':' bad');$('reqX').textContent=mobile?(okX?'配装已达标':`需配装 ≥ ${fmtK(minX)}`):`入场配装价值 ≥ ${fmt(minX)} · ${okX?'已满足':'当前 '+fmt(kv)}`;
@@ -3105,6 +3170,16 @@ function createLobby({profile,meta,mobile,device,deploy,switchPlatform,refresh})
   const total=list.reduce((s,o)=>s+iVal(o.id),0);
   $('stashValue').textContent=`${list.length} 件 · 总值 ${fmt(total)}`;
   $('stash').innerHTML=list.length?list.map(o=>`<button class="it" data-i="${o.i}" style="--rc:${RC[iR(o.id)]}" title="点击出售"><span class="nm">${iName(o.id)}</span><span class="v">${fmt(iVal(o.id))} · ${iSize(o.id)}格</span></button>`).join(''):'<div class="empty">仓库是空的。带着物资撤离，它们会出现在这里。</div>';
+ }
+ // 收藏册：每档品质一行，带出过的亮着、没带出过的变暗（看得到还差哪几件）；有奖励的档写出奖励，集齐打勾（core/profile.js collectInfo、data.js COLLECT）
+ function renderCollect(){
+  const c=profile.collection(),S=profile.save,total=c.tiers.reduce((s,t)=>s+t.length,0),got=c.got.reduce((s,n)=>s+n,0);
+  $('collectInfo').textContent=`${got}/${total} 种${c.safeBonus?` · 安全箱起始 +${c.safeBonus} 格`:''}`;
+  $('collect').innerHTML=c.tiers.map((ids,r)=>{
+   const perk=COLLECT.safe[r]?`集齐：安全箱起始 +${COLLECT.safe[r]} 格`:r===COLLECT.title?`集齐：称号「${COLLECT.titleName}」`:'';
+   return `<div class="ctier" style="--rc:${RC[r]}"><div class="lbl">${RN[r]} · ${c.got[r]}/${ids.length}${perk?` · <span class="${c.done[r]?'ok':''}">${perk}${c.done[r]?' ✓':''}</span>`:''}</div>`
+    +`<div class="cits">${ids.map(id=>`<span class="ci${S.found[id]?'':' no'}">${iName(id)}</span>`).join('')}</div></div>`;
+  }).join('');
  }
  function mount(){
   $('slots').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b||b.disabled)return;if(profile.equip(b.dataset.k,b.dataset.id))refresh();});
@@ -3143,7 +3218,7 @@ __m[28]=(function(){
 /* ================= 局内面板：搜索面板、背包、暂停、结算（DOM） =================
  面板的开关跟着对局状态走：每帧 sync(raid) 对照一次，状态变了才动 DOM；按钮只调用 raid 的方法。 */
 const {fmt,fmtK,mmss}=__m[1];
-const {RC,RN,REVEAL,MEDS,PLATE,BAGS,SAFE_CAP,iName,iR,iSize,iVal}=__m[2];
+const {RC,RN,REVEAL,MEDS,PLATE,BAGS,SAFE_CAP,COLLECT,iName,iR,iSize,iVal}=__m[2];
 const {$,armConfirm}=__m[20];
 
 // getRaid()：进行中的对局（没有则 null）· back()：结算页「返回基地」
@@ -3201,14 +3276,18 @@ function createRaidUI({getRaid,back}){
  function syncPause(G){const p=!!G.paused;if(p===pauseShown)return;pauseShown=p;$('pause').hidden=!p;}
 
  /* ---- summary ---- */
- function showSummary(r){
+ // got：{fresh 第一次带出的物品, unlocked 这局刚集齐的品质}（core/profile.js settle；出错时为 null）
+ function showSummary(r,got){
   $('loot').hidden=true;$('inv').hidden=true;$('pause').hidden=true;invShown=false;pauseShown=false;sumAt=performance.now();
   const t=$('resTitle');t.textContent=r.ok?'撤离成功':'行动失败';t.className='res '+(r.ok?'ok':'bad');
-  $('resSub').textContent=r.ok?`经由「${r.info}」撤离。背包物资已存入仓库，配装完好保留。`:`${r.info}。带入的配装与背包物资全部丢失${r.items.length?'，安全箱里的物资已保住':''}。`;
+  const fresh=new Set(got?got.fresh:[]),unl=(got?got.unlocked:[]).map(i=>`收藏册集齐${RN[i]}${COLLECT.safe[i]?`：安全箱起始 +${COLLECT.safe[i]} 格`:i===COLLECT.title?`：获得称号「${COLLECT.titleName}」`:''}。`).join('');
+  $('resSub').textContent=(r.ok?`经由「${r.info}」撤离。背包物资已存入仓库，配装完好保留。`:`${r.info}。带入的配装与背包物资全部丢失${r.items.length?'，安全箱里的物资已保住':''}。`)
+   +(r.clear?'港区已清场，敌人全部击倒。':'')+unl;
   $('resKV').innerHTML=`<div><span class="lbl">带出价值</span><b style="color:${r.ok?'#4fc3b8':'#d9e1de'}">${fmtK(r.value)}</b></div><div><span class="lbl">击倒</span><b>${r.kills}</b></div>
    <div><span class="lbl">用时</span><b>${mmss(r.dur)}</b></div><div><span class="lbl">配装损失</span><b style="color:${r.lost?'#e5484d':'#d9e1de'}">${fmtK(r.lost)}</b></div>`;
   const it=r.items.slice().sort((a,b)=>iVal(b)-iVal(a));
-  $('resItems').innerHTML=it.length?it.map(id=>`<span class="tag" style="--rc:${RC[iR(id)]}">${iName(id)} · ${fmtK(iVal(id))}</span>`).join(''):'<span class="empty">没有带出物资</span>';
+  // 第一次带出的物品标「新」（收藏册新收；同一种带出好几件只标第一件）
+  $('resItems').innerHTML=it.length?it.map(id=>{const n=fresh.delete(id);return `<span class="tag${n?' new':''}" style="--rc:${RC[iR(id)]}">${n?'新 · ':''}${iName(id)} · ${fmtK(iVal(id))}</span>`;}).join(''):'<span class="empty">没有带出物资</span>';
  }
 
  function mount(){
@@ -3405,8 +3484,8 @@ function fontsReady(text){
  return Promise.race([Promise.all(jobs),new Promise(r=>setTimeout(r,3000))]);
 }
 
-// d：{r 对局结果（core/raid.js end）, rec 本局记录（core/meta.js record，可能为 null）, week weekStats(), name 代号, link 邀请链接, t 时间戳}
-function draw(g,{r,rec,week,name,link,t}){
+// d：{r 对局结果（core/raid.js end）, rec 本局记录（core/meta.js record，可能为 null）, week weekStats(), name 代号, title 收藏册称号（可能为空）, link 邀请链接, t 时间戳}
+function draw(g,{r,rec,week,name,title,link,t}){
  const ok=r.ok,accent=ok?C.teal:C.red,d=new Date(t);
  g.fillStyle=C.bg;g.fillRect(0,0,W,H);
  g.strokeStyle='rgba(255,255,255,.025)';g.lineWidth=1;g.beginPath();   // 淡网格底纹
@@ -3424,9 +3503,11 @@ function draw(g,{r,rec,week,name,link,t}){
  // 结果与带出价值；失败统一叫「行动失败」（超时、放弃都不算阵亡），和结算页一致
  txt(g,ok?'撤离成功':'行动失败',P,316,`800 116px ${F_DISP}`,accent);
  txt(g,fit(g,ok?`经由「${r.info}」撤离`:r.info,`500 34px ${F_BODY}`,W-P*2),P,374,`500 34px ${F_BODY}`,C.muted);
- if(r.killed&&r.killed.boss>0){
-  const s=`击倒首领「${EK.boss.n}」`;g.font=`700 30px ${F_BODY}`;const w=g.measureText(s).width+36;
-  g.strokeStyle=C.amber;g.lineWidth=3;g.strokeRect(W-P-w,256,w,58);txt(g,s,W-P-18,296,`700 30px ${F_BODY}`,C.amber,'right');
+ // 右上徽章：击倒首领、全歼（清场），从右往左排
+ let bx=W-P;
+ for(const s of[r.killed&&r.killed.boss>0?`击倒首领「${EK.boss.n}」`:'',r.clear?'全歼':''].filter(Boolean)){
+  g.font=`700 30px ${F_BODY}`;const w=g.measureText(s).width+36;
+  g.strokeStyle=C.amber;g.lineWidth=3;g.strokeRect(bx-w,256,w,58);txt(g,s,bx-18,296,`700 30px ${F_BODY}`,C.amber,'right');bx-=w+14;
  }
  txt(g,'带出价值',P,452,`500 30px ${F_BODY}`,C.muted);
  txt(g,fmtK(r.value),P-4,586,`800 150px ${F_DISP}`,ok?C.text:C.muted);
@@ -3454,7 +3535,7 @@ function draw(g,{r,rec,week,name,link,t}){
   txt(g,v,LX,y+31,`700 30px ${F_DISP}`,C.muted,'right');
  });
  if(items.length>5)txt(g,`另有 ${items.length-5} 件`,P+22,868+5*52+28,`400 24px ${F_BODY}`,C.muted);
- txt(g,'代号',P,1216,`500 26px ${F_BODY}`,C.muted);
+ txt(g,title?`代号 · ${title}`:'代号',P,1216,`500 26px ${F_BODY}`,title?C.amber:C.muted);
  txt(g,fit(g,name,`800 56px ${F_DISP}`,LX-P),P,1278,`800 56px ${F_DISP}`,C.text);
 
  // 右下：邀请二维码（白底，四周留 4 格空白，扫码软件才认得出）
@@ -3496,8 +3577,8 @@ const {RULES,fmtDid,nameOK}=__m[6];
 const {$,esc,toast}=__m[20];
 const {makeCard}=__m[30];
 
-// meta：设备信息与规则 · device：分享 / 复制 / 下载 · touch()：当前是否触屏操作 · refresh()：重画大厅
-function createMetaUI({meta,device,touch,refresh}){
+// meta：设备信息与规则 · device：分享 / 复制 / 下载 · touch()：当前是否触屏操作 · refresh()：重画大厅 · title()：收藏册称号（没有为空串，core/profile.js collectInfo）
+function createMetaUI({meta,device,touch,refresh,title=()=>''}){
  let card=null,cardJob=0;   // 最近一局的战绩图 {blob, file, url}，大厅「分享上一局战绩图」也用它；只在内存里，刷新页面就没了
  async function copyText(s){
   if(await device.copy(s)){toast('已复制','ok');return true;}
@@ -3600,7 +3681,7 @@ function createMetaUI({meta,device,touch,refresh}){
  /* ---- 状态栏、最近战绩 ---- */
  function render(){
   const M=meta.M;
-  $('myName').textContent=M.name;
+  $('myName').textContent=M.name;$('myTitle').textContent=title();
   const p=meta.plays(),pi=meta.passInfo(),until=p.unlimited&&pi&&pi.until;
   $('playsInfo').innerHTML=p.unlimited?`<span class="pill ok">无限次行动${until?` · ${until} 到期`:''}</span>`
    :`<span class="pill${p.free?'':' dim'}">今日免费 ${p.free}/${RULES.freePerDay}</span><span class="pill${p.bonus?' ok':' dim'}">奖励次数 ${p.bonus}</span>`;
@@ -3608,7 +3689,7 @@ function createMetaUI({meta,device,touch,refresh}){
   $('weekInfo').textContent=`本周 ${w.total} 分 · ${w.count} 局（取最好 ${RULES.weekTop} 局）`;
   $('shareLastBtn').hidden=!card;
   $('myRaids').innerHTML=M.raids.length?M.raids.slice(0,8).map(r=>{const d=new Date(r.t);
-   return `<div class="row"><div><div class="n" style="--rc:${r.ok?'#4fc3b8':'#e5484d'}">${r.ok?'撤离':'阵亡'} · ${r.mode==='x'?'机密':'常规'}</div><div class="m">${d.getMonth()+1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())} · 带出 ${fmtK(r.value)} · 击倒 ${r.kills}</div></div><b class="sc">+${r.score}</b></div>`;}).join('')
+   return `<div class="row"><div><div class="n" style="--rc:${r.ok?'#4fc3b8':'#e5484d'}">${r.ok?'撤离':'阵亡'} · ${r.mode==='x'?'机密':'常规'}${r.clear?' · 全歼':''}</div><div class="m">${d.getMonth()+1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())} · 带出 ${fmtK(r.value)} · 击倒 ${r.kills}</div></div><b class="sc">+${r.score}</b></div>`;}).join('')
    :'<div class="empty">还没有战绩。打完一局，在结算页生成战绩图发到群里。</div>';
  }
  // 结算页的积分与战绩图（rec：本局记录，见 core/meta.js record；记录出错时为 null）。结算页一出现就开始生成图，点按钮时直接用
@@ -3618,7 +3699,7 @@ function createMetaUI({meta,device,touch,refresh}){
   $('resScore').innerHTML=`<div class="scoreline"><span>本局积分</span><b>${rec?'+'+rec.score:'—'}</b><span>本周积分（最好 ${RULES.weekTop} 局）</span><b>${w.total}</b></div>`;
   const btn=acts.querySelector('#sumShare');
   btn.addEventListener('click',()=>{if(card)shareCard(card);});
-  makeCard({r,rec,week:w,name:meta.M.name,link:meta.inviteLink(),t:rec?rec.t:Date.now()})
+  makeCard({r,rec,week:w,name:meta.M.name,title:title(),link:meta.inviteLink(),t:rec?rec.t:Date.now()})
    .then(c=>{if(job!==cardJob)return;card=c;btn.disabled=false;btn.textContent='分享战绩图';$('shareLastBtn').hidden=false;})
    .catch(e=>{console.error(e);if(job===cardJob)btn.textContent='战绩图生成失败';});
   if(meta.firstExtraction(rec)){
@@ -3751,7 +3832,7 @@ const getRaid=()=>app.screen==='raid'?app.raid:null;
 const effects=createEffects(audio);
 const refresh=()=>{lobby.render();metaUI.render();};
 const lobby=createLobby({profile,meta,mobile:MOBILE,device,deploy,switchPlatform,refresh});
-const metaUI=createMetaUI({meta,device,touch:()=>active().touch,refresh});
+const metaUI=createMetaUI({meta,device,touch:()=>active().touch,refresh,title:()=>profile.collection().title});
 const raidUI=createRaidUI({getRaid,back:backToLobby});
 const orientUI=createOrientUI({pref:()=>ORIENT.pref,set:setOrientation});
 
@@ -3789,14 +3870,14 @@ function drainEvents(G,PF){
 }
 // 存档结算、积分各自兜错，结算页总会出来
 function raidEnded(r){
- try{profile.settle(r);}catch(e){console.error(e);}
+ let got=null;try{got=profile.settle(r);}catch(e){console.error(e);}   // got：收藏册新收的物品、刚集齐的品质（core/profile.js settle）
  let rec=null;try{rec=meta.record(r);}catch(e){console.error(e);}
  stats.track(`raid/${r.mode}/${r.ok?'extract':'fail'}`,r.ok?'撤离成功':'撤离失败');
- setTimeout(()=>showSummary(r,rec),r.ok?400:1600);
+ setTimeout(()=>showSummary(r,rec,got),r.ok?400:1600);
 }
-function showSummary(r,rec){
+function showSummary(r,rec,got){
  app.screen='summary';leaveRaid();keepAwake(false);
- raidUI.showSummary(r);
+ raidUI.showSummary(r,got);
  try{metaUI.summary(r,rec);}catch(e){console.error(e);}
  $('summary').hidden=false;$('summary').firstElementChild.scrollTop=0;   // 结算框是复用的，会记着上一局滚到的位置
 }
